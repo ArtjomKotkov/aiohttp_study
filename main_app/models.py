@@ -1,8 +1,10 @@
+import logging
+
 from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey, Boolean
 
 meta = MetaData()
 
-user = Table(
+users = Table(
     'users', meta,
     Column('id', Integer, primary_key=True),
     Column('name', String),
