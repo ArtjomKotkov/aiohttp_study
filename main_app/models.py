@@ -4,14 +4,7 @@ from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey, Boo
 
 meta = MetaData()
 
-users = Table(
-    'users', meta,
-    Column('id', Integer, primary_key=True),
-    Column('name', String),
-    Column('is_admin', Boolean, default=False)
-)
-
-screenshot = Table(
+screenshots = Table(
     'screenshots', meta,
     Column('id', Integer, primary_key=True),
     Column('user_id', Integer, ForeignKey('users.id', ondelete='CASCADE')),
