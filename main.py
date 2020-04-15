@@ -2,7 +2,7 @@ import logging.config
 import base64
 
 from cryptography import fernet
-from aiohttp_session import setup
+import aiohttp_session
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
 
 from aiohttp import web
@@ -15,6 +15,7 @@ import asyncpg
 from main_app.views import routers
 from user_app.views import routers_user
 from user_app.middlewares import Auth
+from user_app.login_manager import user_jinja2_processor
 from settings import load_config, BASE_DIR
 
 with open('loggers.yaml', 'r') as logger_file:
@@ -23,16 +24,23 @@ with open('loggers.yaml', 'r') as logger_file:
 console_logger = logging.getLogger('console_logger')
 
 
-def init_subapp(app, prefix: str, routers_):
+def init_subapp(app, prefix: str, routers_, inherit_values: list):
     sub_app = web.Application()
     sub_app.add_routes(routers_)
-    app.add_subapp(prefix, sub_app)
+    for value in inherit_values:
+        sub_app[value] = app[value]
+    app.add_subapp(f'/{prefix}/', sub_app)
+    app[prefix] = sub_app
     return sub_app
 
 
 async def init_app():
     # Middlewares
-    middlewares = [Auth]
+    fernet_key = fernet.Fernet.generate_key()
+    secret_key = base64.urlsafe_b64decode(fernet_key)
+    storage = EncryptedCookieStorage(secret_key)
+    session_middleware = aiohttp_session.session_middleware(storage)
+    middlewares = [session_middleware, Auth]
     # Create app
     app = web.Application(middlewares=middlewares)
     # Load config
@@ -43,15 +51,10 @@ async def init_app():
     app.add_routes(routers)
     app.router.add_static('/static/', BASE_DIR / 'main_app' / 'static', name='static')
     # Init jinja2
-    aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader(BASE_DIR))
-
-    # Init session
-    fernet_key = fernet.Fernet.generate_key()
-    secret_key = base64.urlsafe_b64decode(fernet_key)
-    setup(app, EncryptedCookieStorage(secret_key))
-
+    aiohttp_jinja2.setup(app, context_processors=[user_jinja2_processor, aiohttp_jinja2.request_processor],
+                         loader=jinja2.FileSystemLoader(BASE_DIR))
     # SubApps
-    user_app = init_subapp(app, prefix='/user/', routers_=routers_user)
+    user_app = init_subapp(app, prefix='user', routers_=routers_user, inherit_values=['db'])
     return app
 
 

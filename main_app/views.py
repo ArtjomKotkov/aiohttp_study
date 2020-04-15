@@ -12,4 +12,4 @@ routers = web.RouteTableDef()
 class MainView(web.View):
     @aiohttp_jinja2.template('main_app/templates/main.html')
     async def get(self):
-        print(self.request.user)
+        pass
