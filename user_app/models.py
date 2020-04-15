@@ -1,8 +1,8 @@
 import sqlalchemy as sa
 
-metadata = sa.MetaData()
+from settings import META_DATA
 
-users = sa.Table('users', metadata,
+users = sa.Table('users', META_DATA,
                  sa.Column('name', sa.String(length=30), primary_key=True),
                  sa.Column('password', sa.String)
                  )

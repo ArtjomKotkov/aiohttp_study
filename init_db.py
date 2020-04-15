@@ -2,9 +2,10 @@ import logging
 
 from sqlalchemy import create_engine, MetaData
 
-from setting import load_config
+from settings import load_config
 from main_app.models import *
 from user_app.models import *
+from user_app.backend import SqlEngine
 
 DSN = create_engine(load_config()['postgres']['DSN'].format(**load_config()['postgres']),
                     echo=True)
@@ -16,8 +17,12 @@ def create_tables(engine):
 
 def put_some_data(engine):
     conn = engine.connect()
+    conn.execute(users.insert(), [
+        dict(name='Artem', password='190898'),
+        dict(name='Sonya', password='190898')
+        ])
     conn.close()
 
 
 if __name__ == '__main__':
-    create_tables(DSN)
+    put_some_data(DSN)

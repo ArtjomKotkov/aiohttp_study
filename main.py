@@ -14,8 +14,8 @@ import asyncpg
 # Import all routers
 from main_app.views import routers
 from user_app.views import routers_user
-
-from setting import load_config, BASE_DIR
+from user_app.middlewares import Auth
+from settings import load_config, BASE_DIR
 
 with open('loggers.yaml', 'r') as logger_file:
     logging.config.dictConfig(yaml.safe_load(logger_file))
@@ -31,8 +31,10 @@ def init_subapp(app, prefix: str, routers_):
 
 
 async def init_app():
+    # Middlewares
+    middlewares = [Auth]
     # Create app
-    app = web.Application()
+    app = web.Application(middlewares=middlewares)
     # Load config
     app['config'] = load_config()
     # Init db engine asyncpg

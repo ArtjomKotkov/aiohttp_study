@@ -1,5 +1,7 @@
 import functools
+import logging
 
+logger_console = logging.getLogger('console_logger')
 
 class SqlEngine:
 
@@ -8,16 +10,20 @@ class SqlEngine:
         self.model = model
 
     def insert(self, values: tuple):  # Add async
-        return Insert(self.model, values)
+        return Insert(self, self.model, values)
 
     def select(self, values: tuple):  # Add async
-        return Select(self.model, values)
+        return Select(self, self.model, values)
 
 
 class SqlFunc:
     """
     Abstract class of every method
     """
+
+    def __init__(self):
+        self.parent = None
+        self.sql_expression = None
 
     @staticmethod
     def check_args(model, values: tuple):
@@ -50,20 +56,26 @@ class SqlFunc:
         pass
 
     async def execute(self):
-        pass
+        await self.parent.conn.execute(self.sql_expression)
+
+    async def close(self):
+        await self.parent.conn.close()
 
 
 class Insert(SqlFunc):
 
-    def __init__(self, model, values):
+    def __init__(self, parent, model, values):
+        self.parent = parent
         self.method = __class__.__class__.__name__
         table_name, coincidence, values = SqlFunc.check_args(model, values)
         self.sql_expression = f'INSERT INTO {table_name} ({", ".join(coincidence)}) VALUES {", ".join(values)}'
+        logger_console.info(self.sql_expression)
 
 
 class Select(SqlFunc):
 
-    def __init__(self, model, values):
+    def __init__(self, parent, model, values):
+        self.parent = parent
         self.method = __class__.__class__.__name__
         table_name, coincidence = SqlFunc.check_args(model, values)
         self.sql_expression = f'SELECT ({", ".join(coincidence)}) FROM {table_name}'

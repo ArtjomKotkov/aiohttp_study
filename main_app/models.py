@@ -2,11 +2,13 @@ import logging
 
 from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey, Boolean
 
+from settings import META_DATA
+
 meta = MetaData()
 
 screenshots = Table(
-    'screenshots', meta,
+    'screenshots', META_DATA,
     Column('id', Integer, primary_key=True),
-    Column('user_id', Integer, ForeignKey('users.id', ondelete='CASCADE')),
+    Column('user', String(length=30), ForeignKey('users.name', ondelete='CASCADE')),
     Column('name', String)
 )
