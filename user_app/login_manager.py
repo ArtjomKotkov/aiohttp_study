@@ -29,7 +29,7 @@ class UserInfo:
             for field, value in self.model.items():
                 return_.update({field: value})
         else:
-            return_ = dict(is_authenticated=False)
+            return_ = dict(is_authenticated=False, name=self.name)
         return return_
 
 
@@ -66,8 +66,8 @@ def create_user():
 
 
 def hash_password(password):
-    return bcrypt.hashpw(password, bcrypt.gensalt(12))
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt(12)).decode("utf-8")
 
 
 def check_password(password, hash_):
-    return True if bcrypt.checkpw(password, hash_) else False
+    return True if bcrypt.checkpw(password.encode('utf-8'), hash_.encode('utf-8')) else False

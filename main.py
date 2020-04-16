@@ -31,6 +31,7 @@ def init_subapp(app, prefix: str, routers_, inherit_values: list):
         sub_app[value] = app[value]
     app.add_subapp(f'/{prefix}/', sub_app)
     app[prefix] = sub_app
+    sub_app['parent_app'] = app
     return sub_app
 
 
@@ -38,7 +39,7 @@ async def init_app():
     # Middlewares
     fernet_key = fernet.Fernet.generate_key()
     secret_key = base64.urlsafe_b64decode(fernet_key)
-    storage = EncryptedCookieStorage(secret_key)
+    storage = EncryptedCookieStorage(secret_key, max_age=10800)
     session_middleware = aiohttp_session.session_middleware(storage)
     middlewares = [session_middleware, Auth]
     # Create app
@@ -49,7 +50,7 @@ async def init_app():
     app['db'] = await asyncpg.create_pool(app['config']['postgres']['DSN'].format(**load_config()['postgres']))
     # Add routers
     app.add_routes(routers)
-    app.router.add_static('/static/', BASE_DIR / 'main_app' / 'static', name='static')
+    app.router.add_static('/static/', BASE_DIR / 'static', name='static')
     # Init jinja2
     aiohttp_jinja2.setup(app, context_processors=[user_jinja2_processor, aiohttp_jinja2.request_processor],
                          loader=jinja2.FileSystemLoader(BASE_DIR))

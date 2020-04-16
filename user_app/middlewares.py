@@ -27,5 +27,4 @@ async def Auth(request, handler):
     else:
         request.user = UserInfo()
     resp = await handler(request)
-    print(resp)
     return resp
