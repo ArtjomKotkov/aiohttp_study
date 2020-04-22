@@ -2,3 +2,19 @@
 .idea/workspace.xml
 
 *.pyc
+
+logs/access.log
+
+logs/error.log
+
+logs/nginx_error_logs.log
+
+logs/nginx.pid
+
+static/player/
+
+logs/
+
+Dockerfile
+
+docker-compose
