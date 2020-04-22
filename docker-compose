@@ -1,0 +1,9 @@
+version '2.0'
+services:
+  veb:
+    build: .
+    volumes:
+      - .:/app
+
+  redis:
+    image: redis

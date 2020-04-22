@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <script src="{{ url('static', filename='jquery-3.4.1.js') }}"></script>
+    <script src="{{ url('static', filename='chat.js') }}"></script>
+    <script src="{{ url('static', filename='player/js/hdwplayer.js') }}"></script>
+</head>
+<body>
+
+    <div id="player" style='width: 300px; height: 150px;'></div>
+
+    <script>
+      $(document).ready(function() {
+        hdwplayer({
+          id        : 'player',
+          swf       : 'static/player/player.swf',
+          width     : '705',
+          height    : '400',
+          type      : 'rtmp',
+          streamer  : 'rtmp://127.0.0.1/live',
+          video     : 'test',
+          autoStart : 'true'
+        });
+      }); 
+    </script>
+
+    <form action="#" method="POST" id="chat_form">
+        {{form.text}}
+        <input type="submit" value="Отправить">
+    </form>
+    <div class="chat d-flex flex-column">
+    </div>
+</body>
+</html>

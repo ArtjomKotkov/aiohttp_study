@@ -7,15 +7,31 @@ from aiohttp_session import get_session
 
 from .login_manager import hash_password, check_password, login, logout
 from .forms import *
-from .backend import SqlEngine
-from .models import users
+from chat.forms import Chat
 
 logger_console = logging.getLogger('console_logger')
 
 routers_user = web.RouteTableDef()
 
 
-@routers_user.view('/register', name='user_register')
+# Main page views
+
+@routers_user.get('/{user_name}')
+async def user_page(request):
+    async with request.app['db'].acquire() as conn:
+        user = await conn.fetchrow('SELECT * FROM users WHERE name = $1', request.match_info['user_name'])
+        if user is None:
+            return web.HTTPNotFound()
+        else:
+            context = {
+                'form': Chat()
+            }
+            return aiohttp_jinja2.render_template('user_app/templates/user_page.html', request, context)
+
+
+# User Auth views
+
+@routers_user.view('/register/', name='user_register')
 class RegisterView(web.View):
     @aiohttp_jinja2.template('user_app/templates/register.html')
     async def get(self):
@@ -28,7 +44,6 @@ class RegisterView(web.View):
             async with self.request.app['db'].acquire() as conn:
                 user = await conn.fetchrow('SELECT * FROM users WHERE name = $1;', form.data['name'])
                 if user is None:
-
                     await conn.execute('INSERT INTO users (name, password) VALUES ($1, $2);', form.data['name'],
                                        hash_password(form.data['password']))
                     user = await conn.fetchrow('SELECT * FROM users WHERE name = $1;', form.data['name'])
@@ -40,7 +55,7 @@ class RegisterView(web.View):
                                                           {'form': form})
 
 
-@routers_user.view('/auth', name='user_auth')
+@routers_user.view('/auth/', name='user_auth')
 class AuthView(web.View):
     @aiohttp_jinja2.template('user_app/templates/auth.html')
     async def get(self):
@@ -52,6 +67,7 @@ class AuthView(web.View):
         if form.validate():
             async with self.request.app['db'].acquire() as conn:
                 user = await conn.fetchrow('SELECT * FROM users WHERE name = $1;', form.data['name'])
+                await conn.close()
                 if user is not None:
                     if check_password(form.data['password'], user['password']):
                         await login(self.request, user, timeout=3600)
@@ -66,7 +82,7 @@ class AuthView(web.View):
                                                           {'form': form})
 
 
-@routers_user.get('/logout', name='user_logout')
+@routers_user.get('/logout/', name='user_logout')
 async def user_logout(request):
     await logout(request)
     raise web.HTTPFound(request.app.router['user_auth'].url_for())

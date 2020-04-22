@@ -7,6 +7,8 @@ META_DATA = MetaData()
 
 BASE_DIR = pathlib.Path(__file__).parent
 
+MEDIA_ROOT = BASE_DIR / 'media'
+
 CONFIG_FILE = 'config.yaml'
 
 SECRET_KEY = 'be65UP<7cEDz_2OlbD?v3]*y^$uD)KMz7g~L9Qwo|PM4jTgG5wOKR)$]w/&8:71'

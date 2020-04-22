@@ -1,0 +1,33 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+<title>Player</title>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<script type="text/javascript" src="player/js/hdwplayer.js"></script>
+<style>
+#iframe1
+            {
+                height:   100%;
+                left:     0px;
+                position: absolute;
+                top:      0px;
+                width:    100%;
+            }
+</style>
+</head>
+<body>
+<div id="player"></div>
+<script>
+hdwplayer({ 
+	id       : 'player',
+	swf      : 'player/player.swf',
+	width    : '630',
+	height   : '360',
+	type	 : 'video',
+	video    : 'http://www.hdwplayer.com/videos/2012.mp4',
+	autoStart: 'true'
+});
+</script>
+
+</body>
+</html>
