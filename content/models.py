@@ -21,7 +21,8 @@ comment = sa.Table('comment', META_DATA,
                    sa.Column('text', sa.String, nullable=False))
 
 tag = sa.Table('tag', META_DATA,
-               sa.Column('name', sa.String(30), primary_key=True))
+               sa.Column('id', sa.Integer, primary_key=True),
+               sa.Column('name', sa.String(30)))
 
 tag_art = sa.Table('tag_art', META_DATA,
                    sa.Column('art_id', sa.Integer, sa.ForeignKey('art.id', ondelete='CASCADE')),

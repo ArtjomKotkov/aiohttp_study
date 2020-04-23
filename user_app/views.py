@@ -1,5 +1,5 @@
 import logging
-import random
+import json
 
 from aiohttp import web
 import aiohttp_jinja2
@@ -86,3 +86,61 @@ class AuthView(web.View):
 async def user_logout(request):
     await logout(request)
     raise web.HTTPFound(request.app.router['user_auth'].url_for())
+
+
+@routers_user.view('/role')
+class Roles(web.View):
+
+    async def get(self):
+        """
+        :return: List of all groups.
+        """
+        async with self.request.app['db'].acquire() as conn:
+            sql_response = await conn.fetch('SELECT * FROM role;')
+            if not sql_response:
+                await conn.close()
+                return web.HTTPOk(body=dict(message='No groups!'))
+            await conn.close()
+            dict_response = dict(items=[dict(name=row['name'], level=row['level']) for row in sql_response])
+            return web.HTTPOk(body=json.dumps(dict_response), content_type='application/json')
+
+    async def post(self):
+        """
+        Create new role.
+        Query args:
+            - name
+            - level
+        :return: New group info.
+        """
+        if (not 'name' or not 'level') in self.request.query:
+            return web.HTTPBadRequest(body=dict(message='Invalid request!'))
+        async with self.request.app['db'].acquire() as conn:
+            sql_response = await conn.fetchrow('SELECT * FROM role WHERE name = $1;',self.request.query['name'])
+            if not sql_response:
+                await conn.execute("INSERT INTO role (name, level) VALUES ($1, $2)",
+                                   self.request.query['name'],self.request.query['level'])
+                sql_response = await conn.fetchrow('SELECT * FROM role WHERE name = $1;',self.request.query['name'])
+                await conn.close()
+                dict_response = dict(items=[dict(name=sql_response['name'], level=sql_response['level'])])
+                return web.HTTPCreated(body=json.dumps(dict_response), content_type='application/json')
+            else:
+                await conn.close()
+                return web.HTTPConflict(
+                    body=dict(message=f'Group with name {self.request.query["name"]} already exist'),
+                    content_type='application/json')
+
+
+@routers_user.view('/role/{name}')
+class Role(web.View):
+
+    async def get(self):
+        async with self.request.app['db'].acquire() as conn:
+            sql_response = await conn.fetchrow('SELECT * FROM role WHERE name = $1;', self.request.query['name'])
+            await conn.close()
+            if not sql_response:
+                return web.HTTPNotFound(
+                    body=dict(message=f'No group with name {self.request.match_info["name"]}'),
+                    content_type='application/json')
+            else:
+                dict_response = dict(items=[dict(name=sql_response['name'], level=sql_response['level'])])
+                return web.HTTPOk(body=json.dumps(dict_response), content_type='application/json')
