@@ -30,13 +30,15 @@ class FilesManager(web.View):
         description = None
         name = None
         path = None
+        datetime_ = datetime.datetime.now()
         dict_response = None
         while True:
             field = await reader.next()
             if not field:
                 async with self.request.app['db'].acquire() as conn:
-                    await conn.execute("""INSERT INTO art (name, description, path) 
-                                          VALUES ($1, $2, $3);""", name, description, path)
+                    await conn.execute("""INSERT INTO art (name, description, path, date, owner, likes, views) 
+                                          VALUES ($1, $2, $3, $4, $5, $6, $7);""", name, description, path, datetime_,
+                                       self.request.user.name, 0, 0)
                     row = await conn.fetchrow("""SELECT * FROM art
                                            ORDER BY id DESC
                                            LIMIT 1;""")
@@ -47,11 +49,10 @@ class FilesManager(web.View):
                                                      path=row['path'],
                                                      likes=row['likes'],
                                                      views=row['views'],
-                                                     date=row['date'],
+                                                     date=row['date'].strftime('%y-%m-%d-%H-%M-%S'),
                                                      owner=row['owner'])])
                 break
             if field.name == 'file':
-                datetime_ = datetime.datetime.now()
                 source_name, source_extension = os.path.splitext(field.filename)
                 new_name = source_name + datetime_.strftime('%y-%m-%d-%H-%M-%S') + source_extension
                 path = os.path.join(self.request.user.name, new_name)
@@ -78,6 +79,7 @@ class FilesManager(web.View):
             - user : name of user which arts need to return
             - limit : limit of arts in response | default = 100
             - offset : offset from start | default = 0
+            - order: [date, views, likes] | default = date
         All arts sorted by datetime.
         :return:
         """
@@ -85,12 +87,12 @@ class FilesManager(web.View):
         user = data.get('user', None)
         limit = data.get('limit', 100)
         offset = data.get('offset', 0)
+        order = data.get('order', 'date')
         async with self.request.app['db'].acquire() as conn:
             if user:
-                sql_request = await conn.fetch("""SELECT * FROM art
-                                            WHERE owner = $1
-                                            ORDER BY date DESC
-                                            LIMIT $2 OFFSET $3;""", user, limit, offset)
+                sql_request = await conn.fetch(
+                    f'SELECT * FROM art WHERE owner = $1 ORDER BY {order} DESC LIMIT $2 OFFSET $3;', user, limit,
+                    offset)
             else:
                 sql_request = await conn.fetch("""SELECT * FROM art
                                             ORDER BY date DESC
@@ -102,7 +104,7 @@ class FilesManager(web.View):
                                          path=row['path'],
                                          likes=row['likes'],
                                          views=row['views'],
-                                         date=row['date'],
+                                         date=row['date'].strftime('%y-%m-%d-%H-%M-%S'),
                                          owner=row['owner']) for row in sql_request])
         return web.Response(body=json.dumps(dict_response), status=200, content_type='application/json')
 
@@ -129,7 +131,7 @@ class FileManager(web.View):
                                              path=row['path'],
                                              likes=row['likes'],
                                              views=row['views'],
-                                             date=row['date'],
+                                             date=row['date'].strftime('%y-%m-%d-%H-%M-%S'),
                                              owner=row['owner'])])
             return web.Response(body=json.dumps(dict_response), status=200, content_type='application/json')
 
@@ -148,4 +150,25 @@ class FileManager(web.View):
                 await conn.close()
                 return web.Response(
                     body=json.dumps(dict(message=f'Successful delete art {self.request.match_info["id"]}'), status=200,
-                                    content_type='application/json')
+                                    content_type='application/json'))
+
+    async def put(self):
+        """
+        Update art instance, accept all params from art model.
+        :return: Updated art instance.
+        """
+        expr = [f'{param} = ${i}' for param, i in zip(self.request.query.keys(), range(1, len(self.request.query) + 1))]
+        async with self.request.app['db'].acquire() as conn:
+            conn.execute(f'UPDATE art SET {", ".join(expr)} WHERE owner = ${len(self.request.query) + 2};',
+                         *self.request.query.values(), self.request.match_info['id'])
+            row = conn.fetchrow('SELECT * FROM art WHERE id = %1;', self.request.match_info['id'])
+            conn.close()
+        dict_response = dict(items=[dict(id=row['id'],
+                                         name=row['name'],
+                                         description=row['description'],
+                                         path=row['path'],
+                                         likes=row['likes'],
+                                         views=row['views'],
+                                         date=row['date'].strftime('%y-%m-%d-%H-%M-%S'),
+                                         owner=row['owner'])])
+        return web.Response(body=json.dumps(dict_response), status=200, content_type='application/json')

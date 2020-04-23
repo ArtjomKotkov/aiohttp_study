@@ -1,12 +1,5 @@
-<!doctype html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <title>Document</title>
-</head>
-<body>
-    <h1>Hello!</h1>
-    {{user.name}}
-    {{url('main')}}
-</body>
-</html>
+{% extends 'templates/main.html' %}
+
+{% block content %}
+HI!
+{% endblock %}

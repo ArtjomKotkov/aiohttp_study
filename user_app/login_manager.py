@@ -12,21 +12,21 @@ class Decorator:
 
     @staticmethod
     def cl_login_required(func):
-        def wrap(self):
-            if not self.request.user.is_authenticated():
+        async def wrap(self, *args, **kwargs):
+            if not self.request.user.is_authenticated:
                 raise HTTPUnauthorized
             else:
-                func(self)
+                await func(self, *args, **kwargs)
 
         return wrap
 
     @staticmethod
     def method_login_required(func):
-        def wrap(request):
-            if not request.user.is_authenticated():
+        async def wrap(request, *args, **kwargs):
+            if not request.user.is_authenticated:
                 raise HTTPUnauthorized
             else:
-                func(request)
+                await func(request, *args, **kwargs)
 
         return wrap
 
@@ -56,9 +56,6 @@ class UserInfo:
         self.name = model['name'] if model else 'Anonymous'
         self.is_authenticated = True if model else False
         self.groups = {group['name']: group['level'] for group in groups} if groups else None
-
-    def is_authenticated(self):
-        return self.is_authenticated
 
     def is_grand(self):
         return self.model['grand'] if self.model else False

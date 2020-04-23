@@ -11,8 +11,8 @@ DSN = create_engine(load_config()['postgres']['DSN'].format(**load_config()['pos
 
 
 def create_tables(engine):
-    #MetaData().drop_all(bind=engine,
-    #                      tables=[groups, users_subscribers, groups_users, art, comment, tag, tag_art])
+    MetaData().drop_all(bind=engine,
+                          tables=[groups, users_subscribers, groups_users, art, comment, tag, tag_art])
     MetaData().create_all(bind=engine,
                           tables=[users, groups, users_subscribers, groups_users, art, comment, tag, tag_art])
 
