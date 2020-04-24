@@ -101,7 +101,8 @@ class Roles(web.View):
                 await conn.close()
                 return web.HTTPOk(body=dict(message='No groups!'))
             await conn.close()
-            dict_response = dict(items=[dict(name=row['name'], level=row['level']) for row in sql_response])
+            dict_response = dict(
+                items=[dict(id=row['id'], name=row['name'], level=row['level']) for row in sql_response])
             return web.HTTPOk(body=json.dumps(dict_response), content_type='application/json')
 
     async def post(self):
@@ -115,13 +116,14 @@ class Roles(web.View):
         if (not 'name' or not 'level') in self.request.query:
             return web.HTTPBadRequest(body=dict(message='Invalid request!'))
         async with self.request.app['db'].acquire() as conn:
-            sql_response = await conn.fetchrow('SELECT * FROM role WHERE name = $1;',self.request.query['name'])
+            sql_response = await conn.fetchrow('SELECT * FROM role WHERE name = $1;', self.request.query['name'])
             if not sql_response:
                 await conn.execute("INSERT INTO role (name, level) VALUES ($1, $2)",
-                                   self.request.query['name'],self.request.query['level'])
-                sql_response = await conn.fetchrow('SELECT * FROM role WHERE name = $1;',self.request.query['name'])
+                                   self.request.query['name'], self.request.query['level'])
+                sql_response = await conn.fetchrow('SELECT * FROM role WHERE name = $1;', self.request.query['name'])
                 await conn.close()
-                dict_response = dict(items=[dict(name=sql_response['name'], level=sql_response['level'])])
+                dict_response = dict(
+                    items=[dict(id=sql_response['id'], name=sql_response['name'], level=sql_response['level'])])
                 return web.HTTPCreated(body=json.dumps(dict_response), content_type='application/json')
             else:
                 await conn.close()
@@ -130,17 +132,124 @@ class Roles(web.View):
                     content_type='application/json')
 
 
-@routers_user.view('/role/{name}')
+@routers_user.view('/role/{id}')
 class Role(web.View):
 
     async def get(self):
         async with self.request.app['db'].acquire() as conn:
-            sql_response = await conn.fetchrow('SELECT * FROM role WHERE name = $1;', self.request.query['name'])
+            sql_response = await conn.fetchrow('SELECT * FROM role WHERE id = $1;', self.request.query['id'])
             await conn.close()
             if not sql_response:
                 return web.HTTPNotFound(
-                    body=dict(message=f'No group with name {self.request.match_info["name"]}'),
+                    body=dict(message=f'No group with id {self.request.match_info["id"]}'),
                     content_type='application/json')
             else:
                 dict_response = dict(items=[dict(name=sql_response['name'], level=sql_response['level'])])
                 return web.HTTPOk(body=json.dumps(dict_response), content_type='application/json')
+
+    async def put(self):
+        """
+        Update role by id.
+        :return:
+        """
+        if not self.request.query:
+            return web.HTTPBadRequest(body=json.dumps(dict(name='Неправильный запрос')),
+                                      content_type='application/json')
+        expr = [f'{param} = ${i}' for param, i in zip(self.request.query.keys(), range(1, len(self.request.query) + 1))]
+        async with self.request.app['db'].acquire() as conn:
+            sql_response = await conn.fetchrow(f"SELECT * FROM role WHERE id = $1;",
+                                               self.request.match_info['id'])
+            if not sql_response:
+                await conn.close()
+                return web.HTTPNotFound(
+                    body=json.dumps(dict(message=f'No role {self.request.match_info["id"]} in database')),
+                    content_type='application/json')
+            await conn.execute(f'UPDATE role SET {", ".join(expr)} WHERE id = ${len(self.request.query) + 2};',
+                               *self.request.query.values(), self.request.match_info['id'])
+            sql_response = await conn.fetchrow('SELECT * FROM role WHERE id = %1;', self.request.match_info['id'])
+            await conn.close()
+        dict_response = dict(
+            items=[dict(id=sql_response['id'], name=sql_response['name'], level=sql_response['level'])])
+        return web.Response(body=json.dumps(dict_response), status=200, content_type='application/json')
+
+    async def delete(self):
+        async with self.request.app['db'].acquire() as conn:
+            sql_response = await conn.fetchrow(f"SELECT * FROM role WHERE id = $1;",
+                                               self.request.match_info['id'])
+            if not sql_response:
+                await conn.close()
+                return web.HTTPNotFound(
+                    body=json.dumps(dict(message=f'No role {self.request.match_info["id"]} in database')),
+                    content_type='application/json')
+            conn.execute('DELETE FROM role WHERE id = $1;', self.request.match_info["id"])
+            await conn.close()
+            return web.Response(
+                body=json.dumps(dict(message=f'Successful delete role {self.request.match_info["id"]}'), status=200,
+                                content_type='application/json'))
+
+
+@routers_user.view('/role/member/{id}')
+class RoleMembers(web.View):
+
+    async def post(self):
+        """
+        Add user with 'name' to group with 'id'.
+        :return: Status of request.
+        """
+        if 'name' not in self.request.query:
+            return web.HTTPBadRequest(body='Need name field!')
+        async with self.request.app['db'].acquire() as conn:
+            sql_response = await conn.fetchrow(f"SELECT * FROM role WHERE id = $1;",
+                                               self.request.match_info['id'])
+            if not sql_response:
+                await conn.close()
+                return web.HTTPNotFound(
+                    body=json.dumps(dict(message=f'No role {self.request.match_info["id"]} in database')),
+                    content_type='application/json')
+            exist_check = await conn.fetchrow('SELECT * FROM role_users WHERE user_name = $1 AND role_id = $2;',
+                                              self.request.query['name'], self.request.match_info['id'])
+            if not exist_check:
+                await conn.execute('INSERT INTO role_users (role_id, user_name) VALUES ($1, $2);',
+                                   self.request.match_info['id'], self.request.query['name'])
+                await conn.close()
+                return web.HTTPOk(
+                    body=json.dumps(dict(message=f'User successfuly added to group {self.request.match_info["id"]}')),
+                    content_type='application/json')
+            else:
+                await conn.close()
+                return web.HTTPConflict(
+                    body=json.dumps(dict(message=f'User already in group {self.request.match_info["id"]}')),
+                    content_type='application/json')
+
+    async def delete(self):
+        """
+        Delete member from role.
+        :return: Status of request.
+        """
+        if 'name' not in self.request.query:
+            return web.HTTPBadRequest(body='Need name field!')
+        async with self.request.app['db'].acquire() as conn:
+            sql_response = await conn.fetchrow(f"SELECT * FROM role WHERE id = $1;",
+                                               self.request.match_info['id'])
+            if not sql_response:
+                await conn.close()
+                return web.HTTPNotFound(
+                    body=json.dumps(dict(message=f'No role {self.request.match_info["id"]} in database')),
+                    content_type='application/json')
+            exist_check = await conn.fetchrow('SELECT * FROM role_users WHERE user_name = $1 AND role_id = $2;',
+                                              self.request.query['name'], self.request.match_info['id'])
+            if not exist_check:
+                await conn.close()
+                return web.HTTPNotFound(
+                    body=json.dumps(
+                        dict(message=f'No user {self.request.query["name"]} in role  {self.request.match_info["id"]}')),
+                    content_type='application/json')
+            else:
+                await conn.execute('DELETE FROM role_users WHERE user_name = $1 AND role_id = $2;',
+                                   self.request.query['name'], self.request.match_info['id'])
+                await conn.close()
+                return web.HTTPOk(
+                    body=json.dumps(
+                        dict(message=f'User {self.request.query["name"]} is '
+                                     f'successfuly deleted from role {self.request.match_info["id"]}')),
+                    content_type='application/json')

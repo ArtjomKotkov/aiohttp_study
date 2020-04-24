@@ -31,20 +31,20 @@ class Decorator:
         return wrap
 
     @staticmethod
-    async def group_required(request, group: str):
-        with request.app['db'].acquire() as conn:
-            group_ = await conn.fetchrow('SELECT level FROM role WHERE name = $1;', group)
-            if not group:
-                raise HTTPNotFound
-            coincidences = await conn.fetch('SELECT * FROM groups_users INNER JOIN role ON groups_users.role_name = group.name WHERE groups_users.user_name = $1;', request.user.name)
-            if not coincidences:
-                raise HTTPUnauthorized
-            conn.close()
-            if all(coincidence['level'] < group_['level'] for coincidence in coincidences):
-                raise HTTPUnauthorized
-            else:
-                pass
-
+    def method_group_required(group: str):
+        async def wrap_outside(func):
+            async def wrap(request, *args, **kwargs):
+                with request.app['db'].acquire() as conn:
+                    group_ = await conn.fetchrow('SELECT level FROM role WHERE name = $1;', group)
+                    await conn.close()
+                    if not group:
+                        raise HTTPNotFound
+                    if group_['name'] in request.user.groups:
+                        return await func(request, *args, **kwargs)
+                    else:
+                        raise HTTPUnauthorized
+            return wrap
+        return wrap_outside
 
 class UserInfo:
     """

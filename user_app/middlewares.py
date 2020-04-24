@@ -22,8 +22,8 @@ async def Auth(request, handler):
             request.user = UserInfo()
         else:
             async with request.app['db'].acquire() as conn:
-                request.user = UserInfo(model = await conn.fetchrow('SELECT * FROM users WHERE name = $1', user_credentials['name']),
-                                        groups = await conn.fetch('SELECT * FROM role INNER JOIN groups_users ON role.name = groups_users.group_name WHERE groups_users.user_name = $1', user_credentials['name'])
+                request.user = UserInfo(model = await conn.fetchrow('SELECT * FROM users WHERE name = $1;', user_credentials['name']),
+                                        groups = await conn.fetch('SELECT * FROM role INNER JOIN groups_users ON role.name = groups_users.group_name WHERE groups_users.user_name = $1;', user_credentials['name'])
                                         )
                 await conn.close()
     else:

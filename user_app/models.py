@@ -16,12 +16,13 @@ users_subscribers = sa.Table(
 )
 
 groups = sa.Table('role', META_DATA,
-                  sa.Column('name', sa.String(length=40), primary_key=True),
+                  sa.Column('id', sa.Integer, primary_key=True),
+                  sa.Column('name', sa.String(length=40), unique=True),
                   sa.Column('level', sa.Integer)
                   )
 
 groups_users = sa.Table(
     'role_users', META_DATA,
-    sa.Column('role_name', sa.String(length=40), sa.ForeignKey('role.name', ondelete='CASCADE')),
+    sa.Column('role_id', sa.String(length=40), sa.ForeignKey('role.id', ondelete='CASCADE')),
     sa.Column('user_name', sa.String(length=30), sa.ForeignKey('users.name', ondelete='CASCADE'))
 )

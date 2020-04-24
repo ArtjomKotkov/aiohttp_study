@@ -49,10 +49,9 @@ class FilesManager(web.View):
                     await conn.execute("""INSERT INTO art (name, description, path, date, owner, likes, views) 
                                           VALUES ($1, $2, $3, $4, $5, $6, $7);""", name, description, path, datetime_,
                                        self.request.user.name, 0, 0)
-                    row = await conn.fetchrow("""SELECT * FROM art
-                                           ORDER BY id DESC
-                                           LIMIT 1;""")
-                    await add_tags_to_art(conn, row['id'], )
+                    row = await conn.fetchrow('SELECT * FROM art WHERE path = $1;', path)
+                    # Add taqs to art.
+                    #await add_tags_to_art(conn, row['id'], )
                     await conn.close()
                     dict_response = dict(items=[dict(id=row['id'],
                                                      name=row['name'],
@@ -254,7 +253,7 @@ class Tag(web.View):
                                           content_type='application/json')
         expr = [f'{param} = ${i}' for param, i in zip(self.request.query.keys(), range(1, len(self.request.query) + 1))]
         async with self.request.app['db'].acquire() as conn:
-            sql_response = await conn.fetchrow(f"SELECT * FROM tag ORDER BY name WHERE id = $1;",
+            sql_response = await conn.fetchrow(f"SELECT * FROM tag WHERE id = $1;",
                                                self.request.match_info['id'])
             if not sql_response:
                 await conn.close()
@@ -262,7 +261,7 @@ class Tag(web.View):
                                     content_type='application/json')
             await conn.execute(f'UPDATE tag SET {", ".join(expr)} WHERE id = ${len(self.request.query) + 2};',
                                *self.request.query.values(), self.request.match_info['id'])
-            sql_response = await conn.fetchrow('SELECT * FROM art WHERE id = %1;', self.request.match_info['id'])
+            sql_response = await conn.fetchrow('SELECT * FROM tag WHERE id = %1;', self.request.match_info['id'])
             await conn.close()
         dict_response = dict(items=[dict(id=sql_response['id'], name=sql_response['name'])])
         return web.Response(body=json.dumps(dict_response), status=200, content_type='application/json')
