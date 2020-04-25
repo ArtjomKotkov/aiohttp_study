@@ -26,4 +26,4 @@ tag = sa.Table('tag', META_DATA,
 
 tag_art = sa.Table('tag_art', META_DATA,
                    sa.Column('art_id', sa.Integer, sa.ForeignKey('art.id', ondelete='CASCADE')),
-                   sa.Column('tag_name', sa.String(30), sa.ForeignKey('tag.name', ondelete='CASCADE')))
+                   sa.Column('tag_id', sa.Integer, sa.ForeignKey('tag.id', ondelete='CASCADE')))

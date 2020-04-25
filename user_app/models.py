@@ -5,7 +5,7 @@ from settings import META_DATA
 users = sa.Table('users', META_DATA,
                  sa.Column('name', sa.String(length=30), primary_key=True),
                  sa.Column('password', sa.String),
-                 sa.Column('grand', sa.BOOLEAN),
+                 sa.Column('grand', sa.BOOLEAN, default=False),
                  )
 
 
@@ -23,6 +23,6 @@ groups = sa.Table('role', META_DATA,
 
 groups_users = sa.Table(
     'role_users', META_DATA,
-    sa.Column('role_id', sa.String(length=40), sa.ForeignKey('role.id', ondelete='CASCADE')),
+    sa.Column('role_id', sa.Integer, sa.ForeignKey('role.id', ondelete='CASCADE')),
     sa.Column('user_name', sa.String(length=30), sa.ForeignKey('users.name', ondelete='CASCADE'))
 )
