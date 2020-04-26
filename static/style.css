@@ -7,138 +7,6 @@ body {
 	background-color: #313131;
 }
 
-.text-white {
-	color:white;
-}
-
-table {
-	font-size: 16px;
-	line-height: 20px;
-	font-family: 'Open Sans Condensed';
-	color: white;
-}
-
-.month-table th {
-	font-size: 10px;
-	padding: 3px;
-	border-bottom: 1px solid #C2C2C2;
-	width: 50px;
-	height: 25px;
-	vertical-align: middle;
-	text-align: center;
-}
-
-.month-table td {
-	padding: 3px;
-	width: 50px;
-	height: 50px;
-	vertical-align: middle;
-	text-align: center;
-	transition-duration: 0.3s;
-}
-
-.nblank-cell {
-	position: relative;
-}
-
-.month-table .nblank-cell:hover {
-	padding: 3px;
-	background-color: #E89C8E;
-	color: white;
-	border-radius: 5px;
-	transition-duration: 0.1s;
-}
-
-.blank-cell {
-	background-color: #3C3C3C;
-}
-
-.hollyday {
-	background-color: #8787ff;
-}
-
-.current-day {
-	background-color: #E89C8E;
-	border-radius: 50%;
-}
-
-.current-day:hover {
-	background-color: #405E9C !important;
-	border-radius: 50% !important;
-}
-
-.task-count{
-	position: absolute;
-	right: 5%;
-	bottom: 5%;
-	color: white;
-	line-height: 100%;
-	width: 30%;
-	background-color: #4D4DB3;
-	border-radius: 50%;
-	font-family: 'Open Sans Condensed';
-}
-
-.day_info_table {
-	border: 1px solid #939393;
-}
-
-.error_block {
-	margin: auto auto;
-	text-align: center;
-}
-
-.error_text {
-	color: #940000;
-}
-
-.popup_window {
-	position: absolute;
-	background-color: #FFFFFF;
-	display: none;
-}
-
-.window-body {
-	width: 100%;
-	height: 100%;
-	padding: 10px;
-}
-
-.block-register {
-	margin: 0 auto;
-}
-
-#restore_password {
-	font-size: 80%;
-}
-
-.newttaskform {
-	padding: 20px;
-	width: 20%;
-	background-color: #313131;
-}
-
-.ColorInput {
-	width: 100%;
-}
-
-.colorpick-eyedropper-input-trigger{
-	display: None;
-}
-
-.djnago-hidden {
-	display: None;
-}
-
-.ops {
-	margin: auto auto;
-}
-
-.context-menu {
-	background-color: white;
-	position: absolute;
-}
-
 textarea {
 	resize: none;
 }
@@ -161,7 +29,6 @@ textarea {
 	height: 2.5em;
 	border-radius: 8px;
 	padding-left: 10px;
-	border: 0.5px solid rgb(135, 135, 255, 0.25);
 	border: none;
 	background-color: #3C3C3C;
 	color: #FFFFFF;
@@ -195,4 +62,9 @@ textarea {
 
 textarea.InputField {
 	min-height: 150px;
+}
+
+/* auth */
+.art {
+	border-radius: 15px;
 }

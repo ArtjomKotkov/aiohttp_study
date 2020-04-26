@@ -1,5 +1,15 @@
 {% extends 'templates/main.html' %}
 
+{% block additionalheaders %}
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+{% endblock %}
+
 {% block content %}
-HI!
+<div class="container-fluid">
+    <div class="row" id="app">
+        <div class="col-xl-2 col-lg-2 col-md-2 col-sm-3 mt-3" v-for="item in info.data.items">
+            <a href=""><img v-bind:src="/media/ + item.path" alt="" class="img-fluid art"></a>
+        </div>
+    </div>
+</div>
 {% endblock %}
