@@ -22,7 +22,7 @@ comment = sa.Table('comment', META_DATA,
 
 tag = sa.Table('tag', META_DATA,
                sa.Column('id', sa.Integer, primary_key=True),
-               sa.Column('name', sa.String(30)))
+               sa.Column('name', sa.String(30), unique=True))
 
 tag_art = sa.Table('tag_art', META_DATA,
                    sa.Column('art_id', sa.Integer, sa.ForeignKey('art.id', ondelete='CASCADE')),

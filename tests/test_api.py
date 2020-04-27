@@ -178,6 +178,14 @@ async def art_test_data(app):
                                       VALUES ($1, $2, $3, $4, $5, $6, $7);""", test_data['name'], None,
                                test_data['path'], datetime_,
                                test_data['user'], 0, 0)
+        for i in range(3):
+            await conn.execute('INSERT INTO tag (name) VALUES ($1);', f'test_tag{i+1}')
+        for i in range(5):
+            await conn.execute("INSERT INTO tag_art (art_id, tag_id) VALUES ($1, $2);", i+1, 1)
+        for i in range(6):
+            await conn.execute("INSERT INTO tag_art (art_id, tag_id) VALUES ($1, $2);", i+1, 2)
+        for i in range(7):
+            await conn.execute("INSERT INTO tag_art (art_id, tag_id) VALUES ($1, $2);", i+1, 3)
         await conn.close()
     return test_data
 
@@ -196,14 +204,14 @@ async def art_test_data(app):
 #         assert response.status == 201
 
 async def test_arts_get(app, art_test_data):
-    test_args = dict(
-        name='Gold',
-        offset=5,
-        limit=20,
-    )
-    response = await app['client'].get('/art', json=test_args)
+    response = await app['client'].get('/art?limit=20')
     data = await response.json()
     assert len(data['items']) == 20
+
+async def extended_test_arts_get(app, art_test_data):
+    response = await app['client'].get('/art?limit=20&tags=test_tag1,test_tag2')
+    data = await response.json()
+    assert len(data['items']) == 6
 
 async def test_art_get(app, art_test_data):
     response = await app['client'].get('/art/1')
@@ -236,3 +244,64 @@ async def test_art_put(app, art_test_data):
         await conn.close()
 
 # Tag api tests
+
+@pytest.fixture
+async def tags_test_data(app):
+    test_data = {"name": 'test', 'path': 'testing', 'user': 'Gold'}
+    async with app['db'].acquire() as conn:
+        await conn.execute('INSERT INTO tag (name) VALUES ($1);', 'test_tag1')
+        await conn.execute('INSERT INTO tag (name) VALUES ($1);', 'test_tag2')
+        await conn.close()
+    return test_data
+
+async def test_tags_get(app, tags_test_data):
+    response = await app['client'].get('/tag')
+    data = await response.json()
+    assert len(data['items']) == 2
+
+async def test_tags_post(app, tags_test_data):
+    test_data = dict(name='test3')
+    response = await app['client'].post('/tag', json=test_data)
+    data = await response.json()
+    async with app['db'].acquire() as conn:
+        sql_check = await conn.fetch('SELECT * FROM tag;')
+        assert len(sql_check) == 3
+        sql_check = await conn.fetchrow('SELECT * FROM tag WHERE id = 3;')
+        assert sql_check['name'] == 'test3'
+
+
+async def test_tag_get(app, tags_test_data):
+    response = await app['client'].get('/tag/1')
+    data = await response.json()
+    assert data['items'][0]['name'] == 'test_tag1'
+
+async def test_tag_put(app, tags_test_data):
+    new_data = dict(name='new_name')
+    response = await app['client'].put('/tag/1', json=new_data)
+    assert response.status == 200
+    data = await response.json()
+    assert data['items'][0]['name'] == new_data['name']
+
+async def test_tag_delete(app, tags_test_data):
+    response = await app['client'].delete('/tag/1')
+    assert response.status == 200
+    async with app['db'].acquire() as conn:
+        sql_check = await conn.fetch('SELECT * FROM tag;')
+        assert len(sql_check) == 1
+
+@pytest.fixture
+async def tag_test_data(app):
+    test_data = {"name": 'test', 'path': 'testing', 'user': 'Gold'}
+    async with app['db'].acquire() as conn:
+        await conn.execute('INSERT INTO users (name, password) VALUES ($1, $2);', 'Gold', 'Test')
+        await conn.execute('INSERT INTO users (name, password) VALUES ($1, $2);', 'Artem', 'Test')
+        await conn.execute('INSERT INTO tag (name) VALUES ($1);', 'test_tag1')
+        await conn.execute('INSERT INTO tag (name) VALUES ($1);', 'test_tag2')
+        for i in range(40):
+            datetime_ = datetime.datetime.now()
+            await conn.execute("""INSERT INTO art (name, description, path, date, owner, likes, views) 
+                                      VALUES ($1, $2, $3, $4, $5, $6, $7);""", test_data['name'], None,
+                               test_data['path'], datetime_,
+                               test_data['user'], 0, 0)
+        await conn.close()
+    return test_data
