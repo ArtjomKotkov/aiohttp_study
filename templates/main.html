@@ -17,7 +17,31 @@
     <title>Document</title>
 </head>
 <body>
-{% block content %}
-{% endblock %}
+    <header>
+        <div class="header">
+            <div class="row h-100">
+                <div class="col-xl-1 col-lg-1 col-md-2 col-sm-12 text-center ">
+                    <a href="" class='h-100 d-inline-block align-middle' alt='Logo'>Artesk</a>
+                </div>
+                <div class="col-xl-9 col-lg-9 col-md-8 col-sm-12">
+                    <form action="">
+                        <input type="text">
+                    </form>
+                </div>
+                <div class="col-xl-2 col-lg-2 col-md-2 col-sm-12">
+                    <nav>
+                        <ul class='d-flex flex-row ustify-content-around'>
+                            <li>Главная</li>
+                            <li>Подписки</li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </header>
+    <div class="main">
+        {% block content %}
+        {% endblock %}
+    </div>
 </body>
 </html>

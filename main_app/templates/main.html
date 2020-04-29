@@ -2,14 +2,17 @@
 
 {% block additionalheaders %}
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-{% endblock %}
+{% endblock %} 
 
 {% block content %}
 <div class="container-fluid">
-    <div class="row" id="app">
-        <div class="col-xl-2 col-lg-2 col-md-2 col-sm-3 mt-3" v-for="item in info.data.items">
-            <a href=""><img v-bind:src="/media/ + item.path" alt="" class="img-fluid art"></a>
-        </div>
+    <div class="row px-4" id="app">
+    	<div class="center" :style="{ width : center_div_width+'px', height : window_height+'px'}">
+    		<template v-for='(row, index1) in info'>
+		        <photo v-for="(item, index2) in row" :item="item" :art_width='art_width'>
+		        </photo>
+    		</template>
+    	</div>
     </div>
 </div>
 {% endblock %}
