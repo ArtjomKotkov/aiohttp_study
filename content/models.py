@@ -13,11 +13,13 @@ art = sa.Table('art', META_DATA,
                sa.Column('date', sa.DateTime, nullable=False),
                sa.Column('width', sa.Integer, nullable=False),
                sa.Column('height', sa.Integer, nullable=False),
-               sa.Column('owner', sa.String(length=30), sa.ForeignKey('users.name', ondelete='CASCADE'), nullable=False))
+               sa.Column('owner', sa.String(length=30), sa.ForeignKey('users.name', ondelete='CASCADE'),
+                         nullable=False))
 
 comment = sa.Table('comment', META_DATA,
                    sa.Column('id', sa.Integer, primary_key=True),
-                   sa.Column('author', sa.String(length=30), nullable=False),
+                   sa.Column('author', sa.String(length=30), sa.ForeignKey('users.name', ondelete='CASCADE'),
+                             nullable=False),
                    sa.Column('art_id', sa.Integer, sa.ForeignKey('art.id', ondelete='CASCADE'), nullable=False),
                    sa.Column('comment_id', sa.Integer, nullable=True),
                    sa.Column('text', sa.String, nullable=False),

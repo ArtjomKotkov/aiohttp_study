@@ -1,4 +1,5 @@
 import logging.config
+import pprint
 
 import aiohttp_session
 from aiohttp_session.redis_storage import RedisStorage

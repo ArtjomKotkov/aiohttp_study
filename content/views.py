@@ -37,22 +37,28 @@ async def check_tags_existing(conn, tags: list):
         return False, [tag['id'] for tag in sql_response]
 
 
-async def check_art_has_tags(conn, art_id, tags: list):
+async def check_art_has_tags(conn, art_id, tags: list, check_exist=True):
     """
     Check what tags art contain.
+    If check exist = False, tags must be list of ids of tags, else it must be list of tags names.
     :param conn:
     :param art_id:
     :param tags:
-    :return:
+    :return: list of not existent tags in the art and tags which art contain
     """
-    exist, new_tags = await check_tags_existing(conn, tags)
-    expr = [f'tag_id = ${tag_index}' for tag_index in range(2, len(new_tags) + 2)]
-    sql_response = await conn.fetch(f'SELECT * FROM tag_art WHERE art_id = $1 AND ({" OR ".join(expr)})', art_id,
-                                    *new_tags)
-    if len(sql_response) == len(tags):
-        return True, new_tags
+    if check_exist:
+        exist, new_tags = await check_tags_existing(conn, tags)
     else:
-        return False, new_tags
+        new_tags = tags
+    expr = [f'tag_id = ${tag_index}' for tag_index in range(2, len(new_tags) + 2)]
+    sql_response = await conn.fetch(f'SELECT * FROM tag_art WHERE art_id = $1 AND ({" OR ".join(expr)})',
+                                    art_id, *new_tags)
+
+    not_existent_tags = list(set(new_tags) - set([row['tag_id'] for row in sql_response]))
+    if len(sql_response) == len(tags):
+        return [], new_tags
+    else:
+        return not_existent_tags, [row['tag_id'] for row in sql_response]
 
 
 async def add_tags_to_art(conn, art_id, tags: list):
@@ -64,20 +70,20 @@ async def add_tags_to_art(conn, art_id, tags: list):
     :param tags: list og tags
     :return:
     """
-    exist, new_tags = check_art_has_tags(conn, art_id, tags)
-    new_tags = list(set(tags) - set(new_tags))
-    if not new_tags:
+    not_existent_tags, ext_tags = await check_art_has_tags(conn, art_id, tags)
+    if not not_existent_tags:
         return 'Art already have all this tags.'
-    exp = [f'($1, ${i}' for i in range(2, len(new_tags) + 2)]
-    conn.execute(f'INSERT INTO tag_art (art_id, tag_name) VALUES {", ".join(exp)};', art_id, *new_tags)
+    exp = [f'($1, ${i})' for i in range(2, len(not_existent_tags) + 2)]
+    await conn.execute(f'INSERT INTO tag_art (art_id, tag_id) VALUES {", ".join(exp)};', art_id, *not_existent_tags)
 
 
 async def delete_tags_from_art(conn, art_id, tags: list):
-    exist, new_tags = check_art_has_tags(conn, art_id, tags)
-    if not new_tags:
+    not_ext_tags, ext_tags = await check_art_has_tags(conn, art_id, tags)
+    print(ext_tags)
+    if not ext_tags:
         return 'Art already doesn\'t have all this tags.'
-    exp = [f'tag_id = ${i}' for i in range(2, len(new_tags) + 2)]
-    conn.execute(f'DELETE FROM tag_art WHERE art_id = $1 AND ({" OR ".join(exp)});', art_id, *new_tags)
+    exp = [f'tag_id = ${i}' for i in range(2, len(ext_tags) + 2)]
+    await conn.execute(f'DELETE FROM tag_art WHERE art_id = $1 AND ({" OR ".join(exp)});', art_id, *ext_tags)
 
 
 async def art_tags(conn, art_id):
@@ -94,6 +100,7 @@ async def art_tags(conn, art_id):
         return {tag['id']: tag['name'] for tag in sql_response}
     else:
         return None
+
 
 async def art_comments(conn, art_id):
     sql_response = await conn.fetch(f'SELECT * FROM comment WHERE art_id = $1 ORDER BY date DESC;', int(art_id))
@@ -134,7 +141,8 @@ class FilesManager(web.View):
                         body=json.dumps(dict(message=f'No required fields!')))
                 async with self.request.app['db'].acquire() as conn:
                     await conn.execute("""INSERT INTO art (name, description, path, date, owner, likes, views, width, height) 
-                                          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);""", name, description, path, datetime_,
+                                          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);""", name, description, path,
+                                       datetime_,
                                        self.request.user.name, 0, 0, width, height)
                     row = await conn.fetchrow('SELECT * FROM art WHERE path = $1;', path)
                     # Add taqs to art.
@@ -187,7 +195,8 @@ class FilesManager(web.View):
             - limit : limit of arts in response | default = 40
             - offset : offset from start | default = 0
             - order: [date, views, likes] | default = date
-            - tags: list of tags, which art have to contain
+            - tags: list of tags, which art have to contain.
+            - fields: list of db field, which needs to return.
         All arts sorted by datetime.
         :return:
         """
@@ -198,6 +207,11 @@ class FilesManager(web.View):
         order = data.get('order', 'date')
         tags = self.request.query.getall('tags', None)
         tags_ = None
+        fields = self.request.query.getall('fields', None)
+        if fields:
+            fields_ = ', '.join(fields)
+        else:
+            fields_ = '*'
         async with self.request.app['db'].acquire() as conn:
             if tags:
                 tags_ids = await check_tags_existing(conn, tags)
@@ -207,36 +221,36 @@ class FilesManager(web.View):
                 expr = [f'tag_art.tag_id = ${i}' for i in range(2, len(tags_ids + 2))]
                 where = f'{" OR ".join(expr)}'
                 sql_request = await conn.fetch(
-                    f'SELECT * FROM art INNER JOIN tag_art ON tag_art.art_id = art.id WHERE art.owner = $1 AND {where} ORDER BY {order} DESC LIMIT {limit} OFFSET {offset};',
+                    f'SELECT {fields_} FROM art INNER JOIN tag_art ON tag_art.art_id = art.id WHERE art.owner = $1 AND {where} ORDER BY {order} DESC LIMIT {limit} OFFSET {offset};',
                     user)
                 tags_ = [await art_tags(conn, art['id']) for art in sql_request]
             elif not user and tags_ids:
                 expr = [f'tag_art.tag_id = ${i}' for i in range(1, len(tags_ids + 1))]
                 where = f'AND {" OR ".join(expr)}'
                 sql_request = await conn.fetch(
-                    f'SELECT * FROM art INNER JOIN tag_art ON tag_art.art_id = art.id WHERE {where} ORDER BY {order} DESC LIMIT {limit} OFFSET {offset};',
+                    f'SELECT {fields_} FROM art INNER JOIN tag_art ON tag_art.art_id = art.id WHERE {where} ORDER BY {order} DESC LIMIT {limit} OFFSET {offset};',
                     user)
                 tags_ = [await art_tags(conn, art['id']) for art in sql_request]
             elif user and not tags_ids:
                 sql_request = await conn.fetch(
-                    f'SELECT * FROM art WHERE art.owner = $1 ORDER BY {order} DESC LIMIT {limit} OFFSET {offset};',
+                    f'SELECT {fields_} FROM art WHERE art.owner = $1 ORDER BY {order} DESC LIMIT {limit} OFFSET {offset};',
                     user)
             else:
                 sql_request = await conn.fetch(
-                    f'SELECT * FROM art ORDER BY {order} DESC LIMIT {limit} OFFSET {offset};')
+                    f'SELECT {fields_} FROM art ORDER BY {order} DESC LIMIT {limit} OFFSET {offset};')
             await conn.close()
         if tags_:
             dict_response = dict(items=[dict(id=row['id'],
-                                         name=row['name'],
-                                         description=row['description'],
-                                         path=row['path'],
-                                         likes=row['likes'],
-                                         views=row['views'],
-                                         date=row['date'].strftime('%y-%m-%d-%H-%M-%S'),
-                                         owner=row['owner'],
-                                         width=row['width'],
-                                         height=row['height'],
-                                         tags=tags) for row, tags in zip(sql_request, tags_)])
+                                             name=row['name'],
+                                             description=row['description'],
+                                             path=row['path'],
+                                             likes=row['likes'],
+                                             views=row['views'],
+                                             date=row['date'].strftime('%y-%m-%d-%H-%M-%S'),
+                                             owner=row['owner'],
+                                             width=row['width'],
+                                             height=row['height'],
+                                             tags=tags) for row, tags in zip(sql_request, tags_)])
         else:
             dict_response = dict(items=[dict(id=row['id'],
                                              name=row['name'],
@@ -247,7 +261,8 @@ class FilesManager(web.View):
                                              date=row['date'].strftime('%y-%m-%d-%H-%M-%S'),
                                              owner=row['owner'],
                                              width=row['width'],
-                                             height=row['height']) for row in sql_request])
+                                             height=row['height'],
+                                             tags=None) for row in sql_request])
         return web.HTTPOk(body=json.dumps(dict_response), content_type='application/json')
 
 
@@ -257,30 +272,36 @@ class FileManager(web.View):
     async def get(self):
         """
         Return art with special id.
-
+        Special params:
+            - fields: list of db field, which needs to return.
         :return: Json response.
         """
-        async with self.request.app['db'].acquire() as conn:
-            row = await conn.fetchrow("""SELECT * FROM art
-                                                WHERE id = $1;""", int(self.request.match_info['id']))
-        if not row:
-            return web.HTTPNotFound(body=json.dumps(dict(message=f'No art with id {self.request.match_info["id"]}.')))
+        fields = self.request.query.getall('fields', None)
+        if fields:
+            fields_ = ', '.join(fields)
         else:
-            tags = await art_tags(conn, row['id'])
-            comments = await art_comments(conn, int(self.request.match_info["id"]))
-            dict_response = dict(items=[dict(id=row['id'],
-                                             name=row['name'],
-                                             description=row['description'],
-                                             path=row['path'],
-                                             likes=row['likes'],
-                                             views=row['views'],
-                                             date=row['date'].strftime('%y-%m-%d-%H-%M-%S'),
-                                             owner=row['owner'],
-                                             tags=tags,
-                                             commets=comments,
-                                             width=row['width'],
-                                             height=row['height'])])
-            return web.HTTPOk(body=json.dumps(dict_response), content_type='application/json')
+            fields_ = '*'
+        async with self.request.app['db'].acquire() as conn:
+            row = await conn.fetchrow(f"SELECT {fields_} FROM art WHERE id = $1;", int(self.request.match_info['id']))
+            if not row:
+                return web.HTTPNotFound(
+                    body=json.dumps(dict(message=f'No art with id {self.request.match_info["id"]}.')))
+            else:
+                tags = await art_tags(conn, row['id'])
+                comments = await art_comments(conn, int(self.request.match_info["id"]))
+                dict_response = dict(items=[dict(id=row['id'],
+                                                 name=row['name'],
+                                                 description=row['description'],
+                                                 path=row['path'],
+                                                 likes=row['likes'],
+                                                 views=row['views'],
+                                                 date=row['date'].strftime('%y-%m-%d-%H-%M-%S'),
+                                                 owner=row['owner'],
+                                                 tags=tags,
+                                                 commets=comments,
+                                                 width=row['width'],
+                                                 height=row['height'])])
+                return web.HTTPOk(body=json.dumps(dict_response), content_type='application/json')
 
     async def delete(self):
         async with self.request.app['db'].acquire() as conn:
@@ -316,7 +337,7 @@ class FileManager(web.View):
             row = await conn.fetchrow('SELECT * FROM art WHERE id = $1;', int(self.request.match_info['id']))
             if 'tags' in data:
                 await add_tags_to_art(conn, int(self.request.match_info['id']), list(data['tags']))
-        tags = await art_tags(conn, row['id'])
+            tags = await art_tags(conn, row['id'])
         dict_response = dict(items=[dict(id=row['id'],
                                          name=row['name'],
                                          description=row['description'],
@@ -326,8 +347,8 @@ class FileManager(web.View):
                                          date=row['date'].strftime('%y-%m-%d-%H-%M-%S'),
                                          owner=row['owner'],
                                          tags=tags,
-                                         width = row['width'],
-                                         height = row['height'])])
+                                         width=row['width'],
+                                         height=row['height'])])
         return web.Response(body=json.dumps(dict_response), status=200, content_type='application/json')
 
 
@@ -436,7 +457,7 @@ class Tag(web.View):
                               content_type='application/json')
 
 
-@routers_content.view('/tag/add/{art_id}')
+@routers_content.view('/tag_id/{id}')
 class ForeignTag(web.View):
 
     async def post(self):
@@ -449,7 +470,8 @@ class ForeignTag(web.View):
             row = await conn.fetchrow("SELECT * FROM art WHERE id = $1;", int(self.request.match_info['id']))
             if not row:
                 return web.HTTPNotFound(
-                    body=json.dumps(dict(message=f'No art with id {self.request.match_info["id"]}.')))
+                    body=json.dumps(dict(message=f'No art with id {self.request.match_info["id"]}.')),
+                    content_type='application/json')
             else:
                 error = await add_tags_to_art(conn, int(self.request.match_info['id']), data['tags'])
                 if error:
@@ -466,8 +488,8 @@ class ForeignTag(web.View):
                                                      date=row['date'].strftime('%y-%m-%d-%H-%M-%S'),
                                                      owner=row['owner'],
                                                      tags=tags,
-                                                     width = row['width'],
-                                                     height = row['height'])])
+                                                     width=row['width'],
+                                                     height=row['height'])])
                     return web.HTTPOk(body=json.dumps(dict_response), content_type='application/json')
 
     async def delete(self):
@@ -475,6 +497,7 @@ class ForeignTag(web.View):
         data = await self.request.json()
         async with self.request.app['db'].acquire() as conn:
             row = await conn.fetchrow("SELECT * FROM art WHERE id = $1;", int(self.request.match_info['id']))
+            print(row)
             if not row:
                 return web.HTTPNotFound(
                     body=json.dumps(dict(message=f'No art with id {self.request.match_info["id"]}.')))
@@ -494,42 +517,52 @@ class ForeignTag(web.View):
                                                      date=row['date'].strftime('%y-%m-%d-%H-%M-%S'),
                                                      owner=row['owner'],
                                                      tags=tags,
-                                                     width = row['width'],
-                                                     height = row['height'])])
+                                                     width=row['width'],
+                                                     height=row['height'])])
                     return web.HTTPOk(body=json.dumps(dict_response), content_type='application/json')
 
 
 @routers_content.view('/comment')
-class Comment(web.View):
+class Comments(web.View):
 
     async def get(self):
         """
-        Need art_id param in request body.
+        Need art_id param in request query str.
         :return:
         """
-        data = await self.request.json()
-        if not data['art_id']:
-            return web.HTTPBadRequest(body=json.dumps(dict(name='Не передано поле art_id')),
+        art_id = self.request.query.get('art', None)
+        if not art_id:
+            return web.HTTPBadRequest(body=json.dumps(dict(message='Не передано поле art_id')),
                                       content_type='application/json')
         async with self.request.app['db'].acquire() as conn:
-            row = await conn.fetchrow("SELECT * FROM art WHERE id = $1;", int(data['art_id']))
+            row = await conn.fetchrow("SELECT * FROM art WHERE id = $1;", int(art_id))
             if not row:
                 return web.HTTPNotFound(
-                    body=json.dumps(dict(message=f'No art with id {data["art_id"]}.')))
-            comments = await art_comments(conn, data['art_id'])
-            return web.HTTPOk(body=json.dumps(comments), content_type='application/json')
-
+                    body=json.dumps(dict(message=f'No art with id {art_id}.')))
+            comments = await art_comments(conn, int(art_id))
+            if comments:
+                response = dict(items=[dict(id=comment['id'],
+                                            author=comment['author'],
+                                            art_id=comment['art_id'],
+                                            comment_id=comment['comment_id'],
+                                            text=comment['text'],
+                                            date=comment['date'].strftime('%y-%m-%d-%H-%M-%S')) for comment in
+                                       comments])
+                return web.HTTPOk(body=json.dumps(response), content_type='application/json')
+            else:
+                return web.HTTPOk(body=json.dumps(dict(message=None)), content_type='application/json')
 
     async def post(self):
         data = await self.request.json()
         async with self.request.app['db'].acquire() as conn:
+            datetime_ = datetime.datetime.now()
             if 'art' in data and 'comment' not in data:
-                conn.execute('INSERT INTO comment (author, art_id, text) VALUES ($1, $2, $3)', self.request.user.name,
-                             int(self.request.match_info['id']), data['text'])
+                await conn.execute('INSERT INTO comment (author, art_id, text, date) VALUES ($1, $2, $3, $4)',
+                                   self.request.user.name, int(self.request.match_info['id']), data['text'])
             elif 'art' in data and 'comment' in data:
-                conn.execute('INSERT INTO comment (author, art_id, comment_id, text) VALUES ($1, $2, $3, $4)',
-                             self.request.user.name,
-                             data['art_id'], data['comment_id'], data, data['text'])
+                await conn.execute(
+                    'INSERT INTO comment (author, art_id, comment_id, text, date) VALUES ($1, $2, $3, $4, $5)',
+                    self.request.user.name, data['art_id'], data['comment_id'], data, data['text'])
             return web.HTTPOk(body=json.dumps(data), content_type='application/json')
 
 
@@ -546,3 +579,40 @@ class Comment(web.View):
                 await conn.execute('DELETE FROM comment WHERE id = $1;', int(self.request.match_info['id']))
                 return web.HTTPOk(body=json.dumps(dict(message='Comment successfuly deleted')),
                                   content_type='application/json')
+
+    async def put(self):
+        """
+        Update comment info
+        Json args:
+            - author
+            - art_id
+            - comment_id
+            - text
+            - date
+        :return:
+        """
+        if self.request.can_read_body:
+            data = await self.request.json()
+        else:
+            return web.HTTPBadRequest(body=json.dumps(dict(name='Неправильный запрос')),
+                                      content_type='application/json')
+        expr = [f'{param} = ${i}' for param, i in zip(data.keys(), range(1, len(data) + 1))]
+        async with self.request.app['db'].acquire() as conn:
+            sql_response = await conn.fetchrow(f"SELECT * FROM comment WHERE id = $1;",
+                                               int(self.request.match_info['id']))
+            if not sql_response:
+                await conn.close()
+                return web.HTTPNotFound(
+                    body=json.dumps(dict(message=f'No comment {self.request.match_info["id"]} in database')),
+                    content_type='application/json')
+            await conn.execute(f'UPDATE comment SET {", ".join(expr)} WHERE id = ${len(data) + 1};',
+                               *data.values(), int(self.request.match_info['id']))
+            comment = await conn.fetchrow('SELECT * FROM comment WHERE id = $1;', int(self.request.match_info['id']))
+            await conn.close()
+            dict_response = dict(items=[dict(id=comment['id'],
+                                            author=comment['author'],
+                                            art_id=comment['art_id'],
+                                            comment_id=comment['comment_id'],
+                                            text=comment['text'],
+                                            date=comment['date'].strftime('%y-%m-%d-%H-%M-%S'))])
+            return web.HTTPOk(body=json.dumps(dict_response), content_type='application/json')

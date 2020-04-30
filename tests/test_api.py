@@ -11,7 +11,7 @@ from user_app.models import users, groups, users_subscribers, groups_users
 from content.models import art, comment, tag, tag_art
 
 from user_app.views import Roles, Role, RoleMembers
-from content.views import FileManager, FilesManager, Tag, Tags
+from content.views import FileManager, FilesManager, Tag, Tags, ForeignTag, Comments, Comment
 
 
 # Creating tables in test database.
@@ -33,6 +33,9 @@ async def app(create_tables, aiohttp_server, aiohttp_client):
     app.router.add_view('/art/{id}', FileManager)
     app.router.add_view('/tag', Tags)
     app.router.add_view('/tag/{id}', Tag)
+    app.router.add_view('/tag_id/{id}', ForeignTag)
+    app.router.add_view('/comment', Comments)
+    app.router.add_view('/comment/{id}', Comment)
     app['db'] = await asyncpg.create_pool('postgresql://saint:190898@localhost:5432/tests')
     server = await aiohttp_server(app)
     client = await aiohttp_client(server)
@@ -174,18 +177,18 @@ async def art_test_data(app):
         await conn.execute('INSERT INTO users (name, password) VALUES ($1, $2);', 'Artem', 'Test')
         for i in range(40):
             datetime_ = datetime.datetime.now()
-            await conn.execute("""INSERT INTO art (name, description, path, date, owner, likes, views) 
-                                      VALUES ($1, $2, $3, $4, $5, $6, $7);""", test_data['name'], None,
+            await conn.execute("""INSERT INTO art (name, description, path, date, owner, likes, views, width, height) 
+                                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);""", test_data['name'], None,
                                test_data['path'], datetime_,
-                               test_data['user'], 0, 0)
+                               test_data['user'], 0, 0, 0, 0)
         for i in range(3):
-            await conn.execute('INSERT INTO tag (name) VALUES ($1);', f'test_tag{i+1}')
+            await conn.execute('INSERT INTO tag (name) VALUES ($1);', f'test_tag{i + 1}')
         for i in range(5):
-            await conn.execute("INSERT INTO tag_art (art_id, tag_id) VALUES ($1, $2);", i+1, 1)
+            await conn.execute("INSERT INTO tag_art (art_id, tag_id) VALUES ($1, $2);", i + 1, 1)
         for i in range(6):
-            await conn.execute("INSERT INTO tag_art (art_id, tag_id) VALUES ($1, $2);", i+1, 2)
+            await conn.execute("INSERT INTO tag_art (art_id, tag_id) VALUES ($1, $2);", i + 1, 2)
         for i in range(7):
-            await conn.execute("INSERT INTO tag_art (art_id, tag_id) VALUES ($1, $2);", i+1, 3)
+            await conn.execute("INSERT INTO tag_art (art_id, tag_id) VALUES ($1, $2);", i + 1, 3)
         await conn.close()
     return test_data
 
@@ -208,10 +211,12 @@ async def test_arts_get(app, art_test_data):
     data = await response.json()
     assert len(data['items']) == 20
 
+
 async def extended_test_arts_get(app, art_test_data):
     response = await app['client'].get('/art?limit=20&tags=test_tag1,test_tag2')
     data = await response.json()
     assert len(data['items']) == 6
+
 
 async def test_art_get(app, art_test_data):
     response = await app['client'].get('/art/1')
@@ -222,6 +227,7 @@ async def test_art_get(app, art_test_data):
         assert data['items'][0]['name'] == sql_check['name']
         await conn.close()
 
+
 async def test_art_delete(app, art_test_data):
     response = await app['client'].delete('/art/1')
     assert response.status == 200
@@ -229,6 +235,7 @@ async def test_art_delete(app, art_test_data):
         sql_check = await conn.fetch('SELECT * from art;')
         assert len(sql_check) == 39
         await conn.close()
+
 
 async def test_art_put(app, art_test_data):
     new_data = dict(
@@ -243,6 +250,7 @@ async def test_art_put(app, art_test_data):
         assert sql_check['path'] == new_data['path']
         await conn.close()
 
+
 # Tag api tests
 
 @pytest.fixture
@@ -254,10 +262,12 @@ async def tags_test_data(app):
         await conn.close()
     return test_data
 
+
 async def test_tags_get(app, tags_test_data):
     response = await app['client'].get('/tag')
     data = await response.json()
     assert len(data['items']) == 2
+
 
 async def test_tags_post(app, tags_test_data):
     test_data = dict(name='test3')
@@ -275,6 +285,7 @@ async def test_tag_get(app, tags_test_data):
     data = await response.json()
     assert data['items'][0]['name'] == 'test_tag1'
 
+
 async def test_tag_put(app, tags_test_data):
     new_data = dict(name='new_name')
     response = await app['client'].put('/tag/1', json=new_data)
@@ -282,12 +293,14 @@ async def test_tag_put(app, tags_test_data):
     data = await response.json()
     assert data['items'][0]['name'] == new_data['name']
 
+
 async def test_tag_delete(app, tags_test_data):
     response = await app['client'].delete('/tag/1')
     assert response.status == 200
     async with app['db'].acquire() as conn:
         sql_check = await conn.fetch('SELECT * FROM tag;')
         assert len(sql_check) == 1
+
 
 @pytest.fixture
 async def tag_test_data(app):
@@ -297,11 +310,68 @@ async def tag_test_data(app):
         await conn.execute('INSERT INTO users (name, password) VALUES ($1, $2);', 'Artem', 'Test')
         await conn.execute('INSERT INTO tag (name) VALUES ($1);', 'test_tag1')
         await conn.execute('INSERT INTO tag (name) VALUES ($1);', 'test_tag2')
-        for i in range(40):
+        for i in range(10):
             datetime_ = datetime.datetime.now()
-            await conn.execute("""INSERT INTO art (name, description, path, date, owner, likes, views) 
-                                      VALUES ($1, $2, $3, $4, $5, $6, $7);""", test_data['name'], None,
-                               test_data['path'], datetime_,
-                               test_data['user'], 0, 0)
-        await conn.close()
+            await conn.execute("""INSERT INTO art (name, description, path, date, owner, likes, views, width, height) 
+                                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);""", test_data['name'], None,
+                               test_data['path'], datetime_, test_data['user'], 0, 0, 0, 0)
     return test_data
+
+
+async def test_foreigntag_post(app, tag_test_data):
+    data = dict(tags=['test_tag1', 'test_tag2'])
+    response = await app['client'].post('/tag_id/1', json=data)
+    assert response.status == 200
+    data = await response.json()
+    assert len(data['items'][0]['tags']) == 2
+
+
+async def test_foreigntag_delete(app, tag_test_data):
+    async with app['db'].acquire() as conn:
+        await conn.execute("INSERT INTO tag_art VALUES ($1, $2), ($1, $3);", 1, 1, 2)
+    data = dict(tags=['test_tag1', 'test_tag2'])
+    response = await app['client'].delete('/tag_id/1', json=data)
+    assert response.status == 200
+    data = await response.json()
+    assert data['items'][0]['tags'] is None
+
+
+@pytest.fixture
+async def comments_test_data(app):
+    test_data = {"name": 'test', 'path': 'testing', 'user': 'Gold'}
+    async with app['db'].acquire() as conn:
+        datetime_ = datetime.datetime.now()
+        await conn.execute('INSERT INTO users (name, password) VALUES ($1, $2);', 'Gold', 'Test')
+        await conn.execute("""INSERT INTO art (name, description, path, date, owner, likes, views, width, height) 
+                                              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);""", test_data['name'], None,
+                           test_data['path'], datetime_,
+                           test_data['user'], 0, 0, 0, 0)
+        for i in range(2):
+            await conn.execute('INSERT INTO comment (author, art_id, text, date) VALUES ($1, $2, $3, $4)', 'Gold', 1,
+                               'some text', datetime_)
+    return test_data
+
+
+async def test_comments_get(app, comments_test_data):
+    response = await app['client'].get('/comment?art=1')
+    assert response.status == 200
+    data = await response.json()
+    assert len(data['items']) == 2
+
+# async def test_comments_post(app, comments_test_data):
+#     pass
+
+async def test_comment_delete(app, comments_test_data):
+    response = await app['client'].delete('/comment/1')
+    assert response.status == 200
+    async with app['db'].acquire() as conn:
+        sql_check = await conn.fetch('SELECT * FROM comment;')
+        assert len(sql_check) == 1
+
+async def test_comment_put(app, comments_test_data):
+    data = dict(text='new text', comment_id=2)
+    response = await app['client'].put('/comment/1', json=data)
+    assert response.status == 200
+    data_ = await response.json()
+    assert data_['items'][0]['text'] == data['text']
+    assert data_['items'][0]['comment_id'] == data['comment_id']

@@ -20,7 +20,6 @@ $(document).ready(function () {
             .then(function (response) {
                 app.raw = response.data.items.slice();
                 var newObject = Object.assign({}, response.data.items)
-                console.log(newObject)
                 app.info = create_array(app.raw, app.arts_in_line, app.art_width)
             });
             window.addEventListener('resize', () => {
@@ -49,7 +48,7 @@ $(document).ready(function () {
         props: ['item', 'art_width'],
         template: `<a class='art' href="" :style="offset(item.offsetX, item.offsetY)" @mouseover="hover = true" @mouseout="hover = false">
                        <img v-bind:src="/media/ + item.path" class="img" :width="art_width+'px'">
-                       <a href="" class='download-art' v-show='hover'>Скачать</a>
+                       <a href="" class='download-art' v-show='hover'>{{item.owner}}</a>
                    </a>`,
         data: function () {
             return {
@@ -57,7 +56,6 @@ $(document).ready(function () {
             }
         },
         updated () {
-            console.log(this.hover)
         },
         methods: {
             offset (valueX, valueY) {
