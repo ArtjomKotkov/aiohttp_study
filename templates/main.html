@@ -12,6 +12,7 @@
     <script src="{{ url('static', filename='vue-app.js') }}"></script>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
           integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative&display=swap" rel="stylesheet">
     {% block additionalheaders %}
     {% endblock %}
     <title>Document</title>
@@ -20,21 +21,18 @@
     <header>
         <div class="header">
             <div class="row h-100">
-                <div class="col-xl-1 col-lg-1 col-md-2 col-sm-12 text-center ">
-                    <a href="" class='h-100 d-inline-block align-middle' alt='Logo'>Artesk</a>
+                <div class="col-xl-1 col-lg-1 col-md-2 col-sm-12 text-center header-part">
+                    <a href="#" id='logo' class='h-100 d-inline-block align-middle header-elem' alt='Logo'>Artesk</a>
                 </div>
-                <div class="col-xl-9 col-lg-9 col-md-8 col-sm-12">
-                    <form action="">
-                        <input type="text">
-                    </form>
+                <div class="col-xl-9 col-lg-9 col-md-7 col-sm-12 header-part">
+                    <input id='main_search' class='header-elem' type="text">
                 </div>
-                <div class="col-xl-2 col-lg-2 col-md-2 col-sm-12">
-                    <nav>
-                        <ul class='d-flex flex-row ustify-content-around'>
-                            <li>Главная</li>
-                            <li>Подписки</li>
-                        </ul>
-                    </nav>
+                <div class="col-xl-2 col-lg-2 col-md-3 col-sm-12 header-part">
+                    <div class='d-flex flex-row justify-content-around h-100 align-items-center'>
+                        <a class='d-block header-button' href="">Главная</a>
+                        <a class='d-block header-button' href="">Моя страница</a>
+                        <a class='d-block header-button' href="">Вход</a>
+                    </div>
                 </div>
             </div>
         </div>

@@ -9,10 +9,16 @@
     <div class="row px-4" id="app">
     	<div class="center" :style="{ width : center_div_width+'px', height : window_height+'px'}">
     		<template v-for='(row, index1) in info'>
-		        <photo v-for="(item, index2) in row" :item="item" :art_width='art_width'>
-		        </photo>
+		        <photo v-for="(item, index2) in row" :item="item" :art_width='art_width' :menu='$refs.menu'></photo>
     		</template>
     	</div>
+    	<cmenu ref='menu'>
+    		<template v-slot:header>
+			    Здесь мог быть заголовок меню
+			</template>
+	        <cmenu_component :name='"Download"'>Скачать</cmenu_component>
+	        <cmenu_component :name='"Share"'>Поделиться</cmenu_component>
+    	</cmenu>
     </div>
 </div>
 {% endblock %}

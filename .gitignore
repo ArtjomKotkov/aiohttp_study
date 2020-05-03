@@ -32,3 +32,7 @@ test.png
 asfasfasf.py
 
 utils/
+
+.coverage
+
+.coveragerc

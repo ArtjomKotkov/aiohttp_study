@@ -88,12 +88,73 @@ textarea.InputField {
 	right: 0;
 	margin: 0;
 	width: 252px;
+	transition-duration: 0.2s;
 }
 
-.download-art {
+.art-owner {
 	position: absolute;
-	left: 5px;
-	bottom: 0;
-	z-index: 2;
+	left: 10px;
+	bottom: 10px;
+	z-index: 3;
 	display: block;
+	background-color: #FFFFFF;
+	height: 30px;
+	width: 50%;
+	border-radius: 15px;
+	line-height: 30px;
+}
+
+.art-menu {
+	position: absolute;
+	right: 15px;
+	bottom: 10px;
+	z-index: 3;
+	display: block;
+	background-color: #FFFFFF;
+	height: 30px;
+	width: 30px;
+	border-radius: 15px; 
+	line-height: 30px;
+}
+
+.context-menu {
+	position: absolute;
+	background-color: white;
+	border-radius: 15px;
+	z-index: 100;
+}
+
+.context-menu .context-menu-item {
+	padding: 3px 10px;
+}
+
+.context-menu-header {
+	padding: 3px 10px;
+}
+
+#logo {
+	font-family: 'Cinzel Decorative', cursive;
+	line-height: 60px;
+	font-size: 24px;
+}
+
+#main_search {
+	width: 100%;
+	height: 60px;
+	margin-top: 5px;
+	border: solid 1px #000000;
+	border-radius: 15px;
+	margin: 5px 5px 0 5px;
+}
+
+.header-part {
+	height: 80px;
+}
+
+.header-button {
+	border: solid 1px #000000;
+	border-radius: 15px;
+	height: 60px;
+	padding: 0 15px;
+	line-height: 30px;
 }

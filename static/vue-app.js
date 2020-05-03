@@ -1,5 +1,107 @@
 $(document).ready(function () {
 
+    Vue.directive('click-outside', {
+      bind: function (el, binding, vnode) {
+        this.event = function (event) {
+          if (!(el == event.target || el.contains(event.target))) {
+            vnode.context[binding.expression](event);
+          }
+        };
+        document.body.addEventListener('click', this.event)
+      },
+      unbind: function (el) {
+        document.body.removeEventListener('click', this.event)
+      },
+    });
+
+
+    component = Vue.component('cmenu_component', {
+        props: ['name'],
+        template: `<div class='context-menu-item'>
+                       <a href="#" class='context-menu-item-text' @click='click(name)'><slot></slot></a>
+                   </div>`,
+        data: function () {
+            return {
+            }
+        },
+        methods: {
+            click () {
+                switch(this.name) {
+                    case "Download":
+                        console.log('Download')
+                        break;
+                    case "Share":
+                        console.log('Share')
+                        break;
+                }
+            }
+        }  
+    })
+
+
+    menu = Vue.component('cmenu', {
+        template: `<div class='context-menu shadow' :style='style' v-if='opened' v-click-outside="close">
+                       <div><span class='context-menu-header'><slot name="header"></slot></span></div>
+                       <hr>
+                       <div><slot></slot></div>
+                   </div>`,
+        data: function () {
+            return {
+                opened: false,
+                style: { 
+                    left: 0,
+                    top: 0,
+                    'z-index': '4'
+                },
+                item: null,
+                menu_button: null,
+                height: 200,
+                width: 300
+            }
+        },
+        methods: {
+            open: function (ev, menu_button, item) {
+                if (this.opened == true) {
+                    this.item = null;
+                    this.opened = false;
+                    this.menu_button = null;
+                    return;
+                }
+                this.item = item;
+                this.opened = true;
+                this.menu_button = menu_button;
+                if (window.innerWidth < ev.clientX + this.width) {
+                    this.style = { 
+                        left: ev.clientX-this.width-30+'px',
+                        top: (ev.clientY-this.height/2)+'px',
+                        'z-index': '4',
+                        width: this.width+'px',
+                        height: this.height+'px',
+                    }
+                } else {
+                    this.style = { 
+                        left: ev.clientX+30+'px',
+                        top: (ev.clientY-this.height/2)+'px',
+                        'z-index': '4',
+                        width: this.width+'px',
+                        height: this.height+'px',
+                    }
+                }
+            },
+            close (event) {
+                if(Object.is(event.target,this.menu_button) == false) {
+                    this.item = null;
+                    this.opened = false;
+                    this.menu_button =null;
+                }
+            }
+        },
+        components: {
+            "cmenu-component":component
+        }
+    })
+
+
     var app = new Vue({
         el: '#app',
         data: {
@@ -42,25 +144,24 @@ $(document).ready(function () {
             center_div_width ()  {
                 return this.arts_in_line * (this.art_width + 10)
             }
-        }
+        },
     })
     Vue.component('photo', {
-        props: ['item', 'art_width'],
-        template: `<a class='art' href="" :style="offset(item.offsetX, item.offsetY)" @mouseover="hover = true" @mouseout="hover = false">
-                       <img v-bind:src="/media/ + item.path" class="img" :width="art_width+'px'">
-                       <a href="" class='download-art' v-show='hover'>{{item.owner}}</a>
-                   </a>`,
+        props: ['item', 'art_width', 'menu'],
+        template: `<span class='art' href="" :style="offset(item.offsetX, item.offsetY)" @mouseover="hover = true" @mouseout="hover = false">
+                        <img v-bind:src="/media/ + item.path" class="img" :width="art_width+'px'">
+                        <a href="#" class='art-owner' align="center" v-show='hover'>{{item.owner}}</a>
+                        <a href="#" class='art-menu' align="center" v-show='hover' ref='menu_button' @click.prevent='menu.open($event, $refs.menu_button, item)'>...</a>
+                   </span>`,
         data: function () {
             return {
                 hover: false,
             }
         },
-        updated () {
-        },
         methods: {
             offset (valueX, valueY) {
               return `transform: translateX(${ valueX }) translateY(${ valueY })`
-            }
+            },
         },
     })
 
