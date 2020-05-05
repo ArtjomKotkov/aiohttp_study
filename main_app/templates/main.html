@@ -1,8 +1,8 @@
 {% extends 'templates/main.html' %}
 
-{% block additionalheaders %}
-<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-{% endblock %} 
+{% block add_to_head %}
+<script src="{{ url('static', filename='vue_scripts/vue-main-page-app.js') }}"></script>
+{% endblock %}
 
 {% block content %}
 <div class="container-fluid">

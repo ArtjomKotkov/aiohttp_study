@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Авторизация</title>
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+	<link rel="stylesheet" href="{{ url('static', filename='styles/reg_auth_style.css') }}">
+
+	<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="{{ url('static', filename='jquery-3.4.1.js') }}"></script>
+	<script src="{{ url('static', filename='lodash.js') }}"></script>
+
+    <script src="{{ url('static', filename='vue_scripts/vue-register-auth-app.js') }}"></script>
+</head>
+<body>
+	<div class="container-fluid">
+		<div class="row" id='app' style='height: 100vh;'>
+			<div class="col-xl-3 offset-xl-8 col-lg-auto offset-lg-8 col-md-8 offset-md-2 col-sm-10 offset-sm-1 shadow" id=''>
+				{% block content %}
+				{% endblock %}
+			</div>
+		</div>
+	</div>
+</body>

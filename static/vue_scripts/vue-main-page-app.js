@@ -14,7 +14,6 @@ $(document).ready(function () {
       },
     });
 
-
     component = Vue.component('cmenu_component', {
         props: ['name'],
         template: `<div class='context-menu-item'>
@@ -41,8 +40,8 @@ $(document).ready(function () {
 
     menu = Vue.component('cmenu', {
         template: `<div class='context-menu shadow' :style='style' v-if='opened' v-click-outside="close">
-                       <div><span class='context-menu-header'><slot name="header"></slot></span></div>
-                       <hr>
+                       <div class='m-1'><span class='m-auto context-menu-header d-block text-center'><slot name="header"></slot></span></div>
+                       <hr class='m-0'>
                        <div><slot></slot></div>
                    </div>`,
         data: function () {
@@ -65,7 +64,6 @@ $(document).ready(function () {
                     this.item = null;
                     this.opened = false;
                     this.menu_button = null;
-                    return;
                 }
                 this.item = item;
                 this.opened = true;
@@ -89,7 +87,7 @@ $(document).ready(function () {
                 }
             },
             close (event) {
-                if(Object.is(event.target,this.menu_button) == false) {
+                if(Object.is(event.target, this.menu_button) == false) {
                     this.item = null;
                     this.opened = false;
                     this.menu_button =null;
@@ -130,6 +128,7 @@ $(document).ready(function () {
                     this.window_height = window.innerHeight 
                     app.info = create_array(this.raw, this.arts_in_line, this.art_width)
                 }
+                
             });
         },
         delimiters: ['[[', ']]'],
@@ -146,9 +145,10 @@ $(document).ready(function () {
             }
         },
     })
+    
     Vue.component('photo', {
         props: ['item', 'art_width', 'menu'],
-        template: `<span class='art' href="" :style="offset(item.offsetX, item.offsetY)" @mouseover="hover = true" @mouseout="hover = false">
+        template: `<span class='art' :style="offset(item.offsetX, item.offsetY)" @mouseover="hover = true" @mouseout="hover = false" @click='enter_art'>
                         <img v-bind:src="/media/ + item.path" class="img" :width="art_width+'px'">
                         <a href="#" class='art-owner' align="center" v-show='hover'>{{item.owner}}</a>
                         <a href="#" class='art-menu' align="center" v-show='hover' ref='menu_button' @click.prevent='menu.open($event, $refs.menu_button, item)'>...</a>
@@ -162,6 +162,9 @@ $(document).ready(function () {
             offset (valueX, valueY) {
               return `transform: translateX(${ valueX }) translateY(${ valueY })`
             },
+            enter_art () {
+                document.location.href = `/user/${this.item.owner}/art/${this.item.id}`;
+            }
         },
     })
 

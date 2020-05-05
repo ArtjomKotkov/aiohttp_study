@@ -6,38 +6,44 @@
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="{{ url('static', filename='jquery-3.4.1.js') }}"></script>
-    <link rel="stylesheet" href="{{ url('static', filename='style.css') }}">
     <script src="{{ url('static', filename='scripts.js') }}"></script>
-    <script src="{{ url('static', filename='vue-app.js') }}"></script>
+    <script src="{{ url('static', filename='vue_scripts/vue-header-app.js') }}"></script>
+    <script src="{{ url('static', filename='lodash.js') }}"></script>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
           integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
     <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative&display=swap" rel="stylesheet">
-    {% block additionalheaders %}
-    {% endblock %}
+    <link rel="stylesheet" href="{{ url('static', filename='styles/style.css') }}">
     <title>Document</title>
+    {% block add_to_head %}
+    {% endblock %}
 </head>
 <body>
     <header>
-        <div class="header">
-            <div class="row h-100">
-                <div class="col-xl-1 col-lg-1 col-md-2 col-sm-12 text-center header-part">
-                    <a href="#" id='logo' class='h-100 d-inline-block align-middle header-elem' alt='Logo'>Artesk</a>
+        <div class="header" id='header'>
+            <div class="d-flex flex-row justify-content-between align-items-center">
+                <div class="mx-5">
+                    <a href="/" id='logo' class='h-100 d-inline-block align-middle header-elem' alt='Logo'>Artesk</a>
                 </div>
-                <div class="col-xl-9 col-lg-9 col-md-7 col-sm-12 header-part">
-                    <input id='main_search' class='header-elem' type="text">
+                <div class="flex-grow-1 mx-2">
+                    <search-input>
+                        <template v-slot:description>
+                            Поиск можно производить по имени изображения и тегам, поиск тегов происходит по введенному значению, ' * ' выводит список всех доступных тегов.
+                        </template>
+                    </search-input>  
                 </div>
-                <div class="col-xl-2 col-lg-2 col-md-3 col-sm-12 header-part">
-                    <div class='d-flex flex-row justify-content-around h-100 align-items-center'>
-                        <a class='d-block header-button' href="">Главная</a>
-                        <a class='d-block header-button' href="">Моя страница</a>
-                        <a class='d-block header-button' href="">Вход</a>
+                <div class="mx-2">
+                    <div class='d-flex flex-row justify-content-end h-100 align-items-center pr-4'>
+                        <div class='d-block header-button' style="width: 50px">
+                            <img src="{{ url('static', filename='img/user.png') }}" width="25px" height="25px" alt="">
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </header>
-    <div class="main">
+    <div class="main-offset">
         {% block content %}
         {% endblock %}
     </div>

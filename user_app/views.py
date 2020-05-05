@@ -28,6 +28,10 @@ async def user_page(request):
             }
             return aiohttp_jinja2.render_template('user_app/templates/user_page.html', request, context)
 
+@routers_user.get('/{user_name}/art/{id}', name='art_instance')
+@aiohttp_jinja2.template('user_app/templates/art_instance.html')
+async def user_page(request):
+    pass
 
 # User Auth views
 
@@ -87,6 +91,16 @@ async def user_logout(request):
     await logout(request)
     raise web.HTTPFound(request.app.router['user_auth'].url_for())
 
+
+@routers_user.view('/manage/{user}')
+class UserManager(web.View):
+    async def get(self):
+        async with self.request.app['db'].acquire() as conn:
+            sql_response = await conn.fetchrow('SELECT * FROM users WHERE name = $1;', self.request.match_info['user'])
+            if self.request.query.get('exist', 'false').lower() == 'true':
+                return web.HTTPOk(body=json.dumps(dict(exist=True if sql_response else False)), content_type='application/json')
+            else:
+                return web.HTTPOk(body=json.dumps(dict(name=sql_response['name'], grand=sql_response['grand'])), content_type='application/json')
 
 @routers_user.view('/role')
 class Roles(web.View):
