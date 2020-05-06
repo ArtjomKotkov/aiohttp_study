@@ -28,10 +28,12 @@ async def user_page(request):
             }
             return aiohttp_jinja2.render_template('user_app/templates/user_page.html', request, context)
 
+
 @routers_user.get('/{user_name}/art/{id}', name='art_instance')
 @aiohttp_jinja2.template('user_app/templates/art_instance.html')
 async def user_page(request):
     pass
+
 
 # User Auth views
 
@@ -67,23 +69,22 @@ class AuthView(web.View):
         return {'form': form}
 
     async def post(self):
-        form = Auth(await self.request.post())
+        data = await self.request.post()
+        form = Auth(data)
         if form.validate():
             async with self.request.app['db'].acquire() as conn:
                 user = await conn.fetchrow('SELECT * FROM users WHERE name = $1;', form.data['name'])
-                await conn.close()
                 if user is not None:
                     if check_password(form.data['password'], user['password']):
-                        await login(self.request, user, timeout=3600)
-                        raise web.HTTPFound(self.request.app['parent_app'].router['main'].url_for())
+                        await login(self.request, user, timeout=7200)
+                        raise web.HTTPOk(body=json.dumps(dict(message='Успешная авторизация')),
+                                     content_type='application/json')
                     else:
-                        form.password.errors.append('Неправильный пароль!')
-                        return aiohttp_jinja2.render_template('user_app/templates/auth.html', self.request,
-                                                              {'form': form})
+                        return web.HTTPUnauthorized(body=json.dumps(dict(message='Неправильный пароль')),
+                                         content_type='application/json')
                 else:
-                    form.name.errors.append('Пользователь с таким именем не существует')
-                    return aiohttp_jinja2.render_template('user_app/templates/auth.html', self.request,
-                                                          {'form': form})
+                    return web.HTTPNotFound(body=json.dumps(dict(message='Такого пользователя не существует')),
+                                     content_type='application/json')
 
 
 @routers_user.get('/logout/', name='user_logout')
@@ -98,9 +99,12 @@ class UserManager(web.View):
         async with self.request.app['db'].acquire() as conn:
             sql_response = await conn.fetchrow('SELECT * FROM users WHERE name = $1;', self.request.match_info['user'])
             if self.request.query.get('exist', 'false').lower() == 'true':
-                return web.HTTPOk(body=json.dumps(dict(exist=True if sql_response else False)), content_type='application/json')
+                return web.HTTPOk(body=json.dumps(dict(exist=True if sql_response else False)),
+                                  content_type='application/json')
             else:
-                return web.HTTPOk(body=json.dumps(dict(name=sql_response['name'], grand=sql_response['grand'])), content_type='application/json')
+                return web.HTTPOk(body=json.dumps(dict(name=sql_response['name'], grand=sql_response['grand'])),
+                                  content_type='application/json')
+
 
 @routers_user.view('/role')
 class Roles(web.View):

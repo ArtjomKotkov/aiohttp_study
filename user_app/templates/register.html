@@ -1,42 +1,6 @@
 {% extends 'templates/main_reg_auth.html' %}
 
 {% block content %}
-	<!-- <form action="{{ request.app.router['user_register'].url_for() }}" method='POST' class='register_form d-flex flex-column align-items-center' style="margin-top: 5em;">
-		{{ form.name(class='InputField', placeholder='Введите имя...') }}
-		{% for error in form.name.errors %}
-			{{error}}
-		{% endfor %}
-		{{ form.password(class='InputField', placeholder='Введите пароль...', type='password') }}
-		{{ form.password2(class='InputField', placeholder='Повторите пароль...', type='password') }}
-		{% for error in form.password2.errors %}
-			{{error}}
-		{% endfor %}
-		<input class="InputField submit p-0" type="submit" value='Регистрация'>
-		<span class="d-block"><a href="{{ request.app.router['user_auth'].url_for() }}" class='auth-links'>Авторизация</a></span>
-	</form> -->
-	<custom-form></custom-form>
+	<register-form url="{{ request.app.router['user_register'].url_for() }}"></register-form>
 {% endblock %}
 
-
-
-
-
-			<!-- <div class="row justify-content-center align-items-center" style="height: 100vh;">
-				<div class="col-xl-3 col-lg-4 col-md-6 col-sm-12 col-12 align-self-center">
-					<div class='block-register'>
-						<form action="{{ request.app.router['user_register'].url_for() }}" method='POST' class='register_form d-flex flex-column align-items-center'>
-							{{ form.name(class='InputField', placeholder='Введите имя...') }}
-							{% for error in form.name.errors %}
-								{{error}}
-							{% endfor %}
-							{{ form.password(class='InputField', placeholder='Введите пароль...', type='password') }}
-							{{ form.password2(class='InputField', placeholder='Повторите пароль...', type='password') }}
-							{% for error in form.password2.errors %}
-								{{error}}
-							{% endfor %}
-							<input class="InputField submit p-0" type="submit" value='Регистрация'>
-							<span class="d-block"><a href="{{ request.app.router['user_auth'].url_for() }}" class='auth-links'>Авторизация</a></span>
-						</form>
-					</div>
-				</div>
-			</div> -->

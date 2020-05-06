@@ -40,3 +40,5 @@ utils/
 tmp.py
 
 *.png
+
+af.py
