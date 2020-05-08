@@ -3,6 +3,13 @@ import datetime
 
 from settings import META_DATA
 
+albums = sa.Table('album', META_DATA,
+                  sa.Column('id', sa.Integer, primary_key=True),
+                  sa.Column('name', sa.String(length=20)),
+                  sa.Column('description', sa.String(length=80)),
+                  sa.Column('owner', sa.String(length=30), sa.ForeignKey('users.name', ondelete='CASCADE'))
+                  )
+
 art = sa.Table('art', META_DATA,
                sa.Column('id', sa.Integer, primary_key=True),
                sa.Column('name', sa.String, nullable=False),
@@ -14,7 +21,8 @@ art = sa.Table('art', META_DATA,
                sa.Column('width', sa.Integer, nullable=False),
                sa.Column('height', sa.Integer, nullable=False),
                sa.Column('owner', sa.String(length=30), sa.ForeignKey('users.name', ondelete='CASCADE'),
-                         nullable=False))
+                         nullable=False),
+               sa.Column('album_id', sa.Integer, sa.ForeignKey('album.id', ondelete='CASCADE'), nullable=True))
 
 comment = sa.Table('comment', META_DATA,
                    sa.Column('id', sa.Integer, primary_key=True),

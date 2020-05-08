@@ -8,7 +8,7 @@ from aiohttp import web, MultipartWriter
 from sqlalchemy import create_engine, MetaData
 
 from user_app.models import users, groups, users_subscribers, groups_users
-from content.models import art, comment, tag, tag_art
+from content.models import art, comment, tag, tag_art, albums
 
 from user_app.views import Roles, Role, RoleMembers
 from content.views import FileManager, FilesManager, Tag, Tags, ForeignTag, Comments, Comment
@@ -19,7 +19,7 @@ from content.views import FileManager, FilesManager, Tag, Tags, ForeignTag, Comm
 def create_tables():
     engine = create_engine('postgresql://saint:190898@localhost:5432/tests')
     MetaData().create_all(bind=engine,
-                          tables=[users, groups, users_subscribers, groups_users, art, comment, tag, tag_art])
+                          tables=[users, groups, users_subscribers, groups_users, albums, art, comment, tag, tag_art])
 
 
 # Creating client instance in test database, and 'db' port for connection to database.
@@ -44,7 +44,7 @@ async def app(create_tables, aiohttp_server, aiohttp_client):
     finally:
         engine = create_engine('postgresql://saint:190898@localhost:5432/tests')
         MetaData().drop_all(bind=engine,
-                            tables=[users, groups, users_subscribers, groups_users, art, comment, tag, tag_art])
+                            tables=[users, groups, users_subscribers, groups_users, albums, art, comment, tag, tag_art])
 
 
 # Roles tests.
@@ -175,7 +175,14 @@ async def art_test_data(app):
     async with app['db'].acquire() as conn:
         await conn.execute('INSERT INTO users (name, password) VALUES ($1, $2);', 'Gold', 'Test')
         await conn.execute('INSERT INTO users (name, password) VALUES ($1, $2);', 'Artem', 'Test')
-        for i in range(40):
+        await conn.execute('INSERT INTO album (name, owner) VALUES ($1, $2)', 'test', 'Artem')
+        for i in range(3):
+            datetime_ = datetime.datetime.now()
+            await conn.execute("""INSERT INTO art (name, description, path, date, owner, likes, views, width, height, album_id) 
+                                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);""", test_data['name'], None,
+                               test_data['path'], datetime_,
+                               'Artem', 0, 0, 0, 0, 1)
+        for i in range(37):
             datetime_ = datetime.datetime.now()
             await conn.execute("""INSERT INTO art (name, description, path, date, owner, likes, views, width, height) 
                                       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);""", test_data['name'], None,
@@ -207,15 +214,24 @@ async def art_test_data(app):
 #         assert response.status == 201
 
 async def test_arts_get(app, art_test_data):
-    response = await app['client'].get('/art?limit=20')
+    # Simple test
+    response = await app['client'].get('/art?limit=1')
     data = await response.json()
-    assert len(data['items']) == 20
+    assert len(data['items']) == 1
+    # Test with tags
+    response = await app['client'].get('/art?user=Artem')
+    data = await response.json()
+    assert len(data['items']) == 3
+    # Test with album
+    response = await app['client'].get('/art?tags=test_tag1,test_tag2')
+    data = await response.json()
+    assert len(data['items']) == 5
 
 
-async def extended_test_arts_get(app, art_test_data):
-    response = await app['client'].get('/art?limit=20&tags=test_tag1,test_tag2')
-    data = await response.json()
-    assert len(data['items']) == 6
+# async def extended_test_arts_get(app, art_test_data):
+#     response = await app['client'].get('/art?limit=20&tags=test_tag1,test_tag2')
+#     data = await response.json()
+#     assert len(data['items']) == 6
 
 
 async def test_art_get(app, art_test_data):

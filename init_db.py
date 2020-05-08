@@ -12,20 +12,18 @@ DSN = create_engine(load_config()['postgres']['DSN'].format(**load_config()['pos
 
 def create_tables(engine):
     MetaData().drop_all(bind=engine,
-                          tables=[groups, users_subscribers, groups_users, art, comment, tag, tag_art])
+                          tables=[groups, users_subscribers, groups_users, albums, art, comment, tag, tag_art, albums])
     MetaData().create_all(bind=engine,
-                          tables=[users, groups, users_subscribers, groups_users, art, comment, tag, tag_art])
+                          tables=[users, groups, users_subscribers, groups_users, albums, art, comment, tag, tag_art])
 
 
 def put_some_data(engine):
     conn = engine.connect()
     conn.execute(users.insert(), [
-        dict(name='Artem', password='190898'),
-        dict(name='Sonya', password='190898')
-    ])
+        dict(name='GoldXD', password='190898')
+        ])
     conn.close()
 
 
 if __name__ == '__main__':
-
     create_tables(DSN)

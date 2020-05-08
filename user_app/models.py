@@ -8,7 +8,6 @@ users = sa.Table('users', META_DATA,
                  sa.Column('grand', sa.BOOLEAN, default=False),
                  )
 
-
 users_subscribers = sa.Table(
     'users_subscribers', META_DATA,
     sa.Column('owner_name', sa.String(length=30), sa.ForeignKey('users.name', ondelete='CASCADE')),

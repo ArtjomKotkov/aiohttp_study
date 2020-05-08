@@ -29,8 +29,9 @@ async def check_tags_existing(conn, tags: list):
     :param tags: list of tags
     :return: boolean, and ids of every tag, which are in database
     """
-    expr = [f'name = ${tag_index}' for tag_index in range(1, len(tags) + 1)]
-    sql_response = await conn.fetch(f'SELECT * FROM tag WHERE {" OR ".join(expr)};', *tags)
+
+    where_condition, pos = milti_where("name", tags, 1, "OR")
+    sql_response = await conn.fetch(f'SELECT * FROM tag WHERE {where_condition};', *tags)
     if len(sql_response) == len(tags):
         return True, [tag['id'] for tag in sql_response]
     else:
@@ -79,7 +80,6 @@ async def add_tags_to_art(conn, art_id, tags: list):
 
 async def delete_tags_from_art(conn, art_id, tags: list):
     not_ext_tags, ext_tags = await check_art_has_tags(conn, art_id, tags)
-    print(ext_tags)
     if not ext_tags:
         return 'Art already doesn\'t have all this tags.'
     exp = [f'tag_id = ${i}' for i in range(2, len(ext_tags) + 2)]
@@ -108,6 +108,25 @@ async def art_comments(conn, art_id):
         return sql_response
     else:
         return None
+
+
+def milti_where(field: str, list_, start: int, separator):
+    """
+    Create sql where condition.
+    Return condition-str, and start + len(list_) + 1
+    """
+    pos = len(list_) + start
+    return f" {separator} ".join([f'{field} = ${i}' for i in range(start, pos)]), pos
+
+
+def sql_in(field: str, list_, start: int):
+    """
+    Create sql where condition.
+    Return condition-str, and start + len(list_) + 1
+    """
+    pos = len(list_) + start
+
+    return f"{field} IN ({', '.join([f'${i}' for i in range(start, pos)])})", pos
 
 
 @routers_content.view('/art', name='art')
@@ -205,40 +224,84 @@ class FilesManager(web.View):
         limit = data.get('limit', 40)
         offset = data.get('offset', 0)
         order = data.get('order', 'date')
-        tags = self.request.query.getall('tags', None)
+        albums = data.get('album', None)
+        tags = data.get('tags', None)
         tags_ = None
-        fields = self.request.query.getall('fields', None)
+        fields = data.getall('fields', ['id','name','description','path','likes','views','date','width','height','owner','album_id'])
         if fields:
             fields_ = ', '.join(fields)
         else:
             fields_ = '*'
         async with self.request.app['db'].acquire() as conn:
             if tags:
-                tags_ids = await check_tags_existing(conn, tags)
+                exist, tags_ids = await check_tags_existing(conn, tags.split(','))
             else:
                 tags_ids = None
-            if user and tags_ids:
-                expr = [f'tag_art.tag_id = ${i}' for i in range(2, len(tags_ids + 2))]
-                where = f'{" OR ".join(expr)}'
-                sql_request = await conn.fetch(
-                    f'SELECT {fields_} FROM art INNER JOIN tag_art ON tag_art.art_id = art.id WHERE art.owner = $1 AND {where} ORDER BY {order} DESC LIMIT {limit} OFFSET {offset};',
-                    user)
-                tags_ = [await art_tags(conn, art['id']) for art in sql_request]
-            elif not user and tags_ids:
-                expr = [f'tag_art.tag_id = ${i}' for i in range(1, len(tags_ids + 1))]
-                where = f'AND {" OR ".join(expr)}'
-                sql_request = await conn.fetch(
-                    f'SELECT {fields_} FROM art INNER JOIN tag_art ON tag_art.art_id = art.id WHERE {where} ORDER BY {order} DESC LIMIT {limit} OFFSET {offset};',
-                    user)
-                tags_ = [await art_tags(conn, art['id']) for art in sql_request]
-            elif user and not tags_ids:
-                sql_request = await conn.fetch(
-                    f'SELECT {fields_} FROM art WHERE art.owner = $1 ORDER BY {order} DESC LIMIT {limit} OFFSET {offset};',
-                    user)
-            else:
-                sql_request = await conn.fetch(
-                    f'SELECT {fields_} FROM art ORDER BY {order} DESC LIMIT {limit} OFFSET {offset};')
-            await conn.close()
+
+            where = []
+            params = []
+            start = 1
+            from_ = 'FROM art'
+            group_by = ''
+            if user:
+                where.append('art.owner = $1')
+                params.append(user)
+                start = 2
+            if tags_ids:
+                expr1, start = sql_in('tag_art.tag_id', tags_ids, start)
+                # expr1, start = milti_where('tag_art.tag_id', tags_ids, start, 'OR')
+                from_ = 'FROM art INNER JOIN tag_art ON tag_art.art_id = art.id'
+                # where.append(expr1)
+                # for tag in tags_ids:
+                #     params.append(int(tag))
+                # from_ = 'FROM art, tag, tag_art'
+                # expr1, start = milti_where('tag_art.tag_id', tags_ids, start, 'OR')
+                # expr2 = f"art.id = tag_art.art_id AND ({expr1})"
+                group_by = f'GROUP BY art.id HAVING COUNT(tag_art.tag_id) = {len(tags_ids)}'
+                where.append(expr1)
+                for tag in tags_ids:
+                    params.append(int(tag))
+
+            if albums:
+                albums = albums.split(',')
+                expr3, start = milti_where('art.album_id', albums, start, 'OR')
+                where.append(expr3)
+                for album in albums:
+                    params.append(int(album))
+            try:
+                where[0] = 'WHERE ' + where[0]
+            except IndexError:
+                pass
+            where_exp = " AND ".join(where)
+            sql_expression = f'SELECT DISTINCT {fields_} {from_} {where_exp} ORDER BY {order} DESC {group_by} LIMIT {limit} OFFSET {offset};'
+            print(sql_expression)
+            sql_response = await conn.fetch(sql_expression, *params)
+            pprint.pprint(sql_response)
+            if sql_response and tags_ids:
+                tags_ = [await art_tags(conn, art['id']) for art in sql_response]
+
+            # if user and tags_ids:
+            #     expr = [f'tag_art.tag_id = ${i}' for i in range(2, len(tags_ids + 2))]
+            #     where = f'{" OR ".join(expr)}'
+            #     sql_request = await conn.fetch(
+            #         f'SELECT {fields_} FROM art INNER JOIN tag_art ON tag_art.art_id = art.id WHERE art.owner = $1 AND {where} ORDER BY {order} DESC LIMIT {limit} OFFSET {offset};',
+            #         user)
+            #     tags_ = [await art_tags(conn, art['id']) for art in sql_request]
+            # elif not user and tags_ids:
+            #     expr = [f'tag_art.tag_id = ${i}' for i in range(1, len(tags_ids + 1))]
+            #     where = f'{" OR ".join(expr)}'
+            #     sql_request = await conn.fetch(
+            #         f'SELECT {fields_} FROM art INNER JOIN tag_art ON tag_art.art_id = art.id WHERE {where} ORDER BY {order} DESC LIMIT {limit} OFFSET {offset};',
+            #         user)
+            #     tags_ = [await art_tags(conn, art['id']) for art in sql_request]
+            # elif user and not tags_ids:
+            #     sql_request = await conn.fetch(
+            #         f'SELECT {fields_} FROM art WHERE art.owner = $1 ORDER BY {order} DESC LIMIT {limit} OFFSET {offset};',
+            #         user)
+            # else:
+            #     sql_request = await conn.fetch(
+            #         f'SELECT {fields_} FROM art ORDER BY {order} DESC LIMIT {limit} OFFSET {offset};')
+
         if tags_:
             dict_response = dict(items=[dict(id=row['id'],
                                              name=row['name'],
@@ -250,7 +313,7 @@ class FilesManager(web.View):
                                              owner=row['owner'],
                                              width=row['width'],
                                              height=row['height'],
-                                             tags=tags) for row, tags in zip(sql_request, tags_)])
+                                             tags=tags) for row, tags in zip(sql_response, tags_)])
         else:
             dict_response = dict(items=[dict(id=row['id'],
                                              name=row['name'],
@@ -262,7 +325,7 @@ class FilesManager(web.View):
                                              owner=row['owner'],
                                              width=row['width'],
                                              height=row['height'],
-                                             tags=None) for row in sql_request])
+                                             tags=None) for row in sql_response])
         return web.HTTPOk(body=json.dumps(dict_response), content_type='application/json')
 
 
@@ -497,7 +560,6 @@ class ForeignTag(web.View):
         data = await self.request.json()
         async with self.request.app['db'].acquire() as conn:
             row = await conn.fetchrow("SELECT * FROM art WHERE id = $1;", int(self.request.match_info['id']))
-            print(row)
             if not row:
                 return web.HTTPNotFound(
                     body=json.dumps(dict(message=f'No art with id {self.request.match_info["id"]}.')))
@@ -610,9 +672,9 @@ class Comment(web.View):
             comment = await conn.fetchrow('SELECT * FROM comment WHERE id = $1;', int(self.request.match_info['id']))
             await conn.close()
             dict_response = dict(items=[dict(id=comment['id'],
-                                            author=comment['author'],
-                                            art_id=comment['art_id'],
-                                            comment_id=comment['comment_id'],
-                                            text=comment['text'],
-                                            date=comment['date'].strftime('%y-%m-%d-%H-%M-%S'))])
+                                             author=comment['author'],
+                                             art_id=comment['art_id'],
+                                             comment_id=comment['comment_id'],
+                                             text=comment['text'],
+                                             date=comment['date'].strftime('%y-%m-%d-%H-%M-%S'))])
             return web.HTTPOk(body=json.dumps(dict_response), content_type='application/json')
