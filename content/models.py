@@ -6,7 +6,7 @@ from settings import META_DATA
 albums = sa.Table('album', META_DATA,
                   sa.Column('id', sa.Integer, primary_key=True),
                   sa.Column('name', sa.String(length=20)),
-                  sa.Column('description', sa.String(length=80)),
+                  sa.Column('description', sa.String(length=80), nullable=True),
                   sa.Column('owner', sa.String(length=30), sa.ForeignKey('users.name', ondelete='CASCADE'))
                   )
 
