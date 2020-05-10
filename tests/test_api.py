@@ -373,10 +373,11 @@ async def comments_test_data(app):
     async with app['db'].acquire() as conn:
         datetime_ = datetime.datetime.now()
         await conn.execute('INSERT INTO users (name, password) VALUES ($1, $2);', 'Gold', 'Test')
-        await conn.execute("""INSERT INTO art (name, description, path, date, owner, likes, views, width, height) 
-                                              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);""", test_data['name'], None,
+        await conn.execute("""INSERT INTO art (name, description, path, date, owner, likes, views, width, height, album_id) 
+                                              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);""", test_data['name'],
+                           None,
                            test_data['path'], datetime_,
-                           test_data['user'], 0, 0, 0, 0)
+                           test_data['user'], 0, 0, 0, 0, None)
         for i in range(2):
             await conn.execute('INSERT INTO comment (author, art_id, text, date) VALUES ($1, $2, $3, $4)', 'Gold', 1,
                                'some text', datetime_)
@@ -415,9 +416,13 @@ async def albums_test_data(app):
         await conn.execute('INSERT INTO users (name, password) VALUES ($1, $2);', 'Gold', 'Test')
         await conn.execute('INSERT INTO album (name, owner) VALUES ($1, $2), ($3, $4);', 'Test1', 'Gold', 'Test2',
                            'Gold')
+        datetime_ = datetime.datetime.now()
+        await conn.execute("""INSERT INTO art (name, description, path, date, owner, likes, views, width, height, album_id) 
+                                                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);""", 'test_art',
+                           None, 'path', datetime_, 'Gold', 0, 0, 0, 0, None)
+
 
 async def test_albums_get(app, albums_test_data):
-
     # Simple request
     response = await app['client'].get('/album')
     assert response.status == 200
@@ -433,18 +438,18 @@ async def test_albums_get(app, albums_test_data):
     assert 'description' not in data_['items'][0]
     assert 'id' not in data_['items'][0]
 
-async def test_albums_post(app, albums_test_data):
 
+async def test_albums_post(app, albums_test_data):
     data = dict(name='test1', owner='Gold')
     response = await app['client'].post('/album', json=data)
-    assert response.status == 200
+    assert response.status == 201
     data_ = await response.json()
     async with app['db'].acquire() as conn:
         sql_check = await conn.fetchrow('SELECT * FROM album ORDER BY id DESC LIMIT 1;')
         assert sql_check['id'] == data_['items'][0]['id']
 
-async def test_album_get(app, albums_test_data):
 
+async def test_album_get(app, albums_test_data):
     response = await app['client'].get('/album/1?fields=name,owner')
     assert response.status == 200
     data_ = await response.json()
@@ -454,3 +459,29 @@ async def test_album_get(app, albums_test_data):
     assert 'owner' in data_['items'][0]
     assert 'description' not in data_['items'][0]
     assert 'id' not in data_['items'][0]
+
+
+async def test_album_delete(app, albums_test_data):
+    response = await app['client'].delete('/album/1')
+    assert response.status == 200
+    async with app['db'].acquire() as conn:
+        sql_check = await conn.fetch('SELECT * FROM album;')
+    assert len(sql_check) == 1
+
+
+async def test_album_put(app, albums_test_data):
+    data = dict(name='new_name', description='New description')
+    response = await app['client'].put('/album/1', json=data)
+    assert response.status == 200
+    data_ = await response.json()
+    assert data_['items'][0]['name'] == 'new_name'
+    assert data_['items'][0]['description'] == 'New description'
+
+
+async def test_album_post(app, albums_test_data):
+    data = dict(id='1')
+    response = await app['client'].post('/album/1', json=data)
+    assert response.status == 200
+    async with app['db'].acquire() as conn:
+        sql_check = await conn.fetch('SELECT * FROM art WHERE album_id = 1;')
+    assert len(sql_check) == 1

@@ -208,3 +208,48 @@ textarea.InputField {
 .change_cursor_pointer {
 	cursor: pointer;
 }
+
+.header_menu {
+	position: absolute;
+	right: 10px;
+	top: 75px;
+	border-radius: 15px;
+	display: inline-block;
+
+	background-color: white;
+}
+
+.header_menu hr {
+	margin: 5px 0 10px 0;
+	padding: 0;
+	width: calc(100% + 32px);
+}
+
+.header_menu_block_item {
+	background-color: white;
+	transition-duration: 0.2s;
+	border-radius: 15px;
+	width: 100%;
+	line-height: 16px;
+	margin: 2px 0 2px 0;
+	text-align: right;
+	padding: 2px 0 2px 0;
+	color: black;
+}
+
+.header_menu_block_item:hover {
+	background-color: #e8e8e8;
+	color: black;
+	text-decoration: none;
+}
+
+.header_menu_block_header {
+	background-color: white;
+	transition-duration: 0.2s;
+	border-radius: 15px;
+	width: 100%;
+	line-height: 16px;
+	margin: 1,5px 0 10px 0;
+	text-align: center;
+	font-weight: bold;
+}

@@ -1,0 +1,15 @@
+{% extends 'templates/main.html' %}
+
+{% block add_to_head %}
+<script src="{{ url('static', filename='vue_scripts/vue-gallery-app.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+
+<div id='app'>
+<user_init owner='{{owner}}'></user_init>
+
+
+</div>
+
+{% endblock %}

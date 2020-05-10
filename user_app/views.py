@@ -34,8 +34,12 @@ async def user_page(request):
 async def user_page(request):
     pass
 
+@routers_user.get('/{user_name}/gallery/')
+@aiohttp_jinja2.template('user_app/templates/art_gallery.html')
+async def gallary_page(request):
+    return {'owner':request.match_info['user_name']}
 
-# User Auth views
+
 
 @routers_user.view('/register/', name='user_register')
 class RegisterView(web.View):

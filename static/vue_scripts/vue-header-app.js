@@ -1,6 +1,20 @@
 
 $(document).ready(function () {
 
+    Vue.directive('click-outside', {
+      bind: function (el, binding, vnode) {
+        this.event = function (event) {
+          if (!(el == event.target || el.contains(event.target))) {
+            vnode.context[binding.expression](event);
+          }
+        };
+        document.body.addEventListener('click', this.event)
+      },
+      unbind: function (el) {
+        document.body.removeEventListener('click', this.event)
+      },
+    });
+
 	search_input = Vue.component('search-input', {
 		inheritAttrs: false,
         template: `
@@ -79,30 +93,21 @@ $(document).ready(function () {
         }  
     })
 
+
 	var app = new Vue({
         el: '#header',
         data: {
+            header_menu_show: false,
         },
         mounted() {
-    //         this.window_width = window.innerWidth
-    //         this.window_height = window.innerHeight 
-    //         axios({
-    //             method: 'get',
-    //             url: '/content/art',
-				// contentType: 'application/json'
-    //         })
-    //         .then(function (response) {
-    //             app.raw = response.data.items.slice();
-    //             var newObject = Object.assign({}, response.data.items)
-    //             app.info = create_array(app.raw, app.arts_in_line, app.art_width)
-    //         });
-    //         window.addEventListener('resize', () => {
-    //             if (app.raw !== null){
-    //                 this.window_width = window.innerWidth
-    //                 this.window_height = window.innerHeight 
-    //                 app.info = create_array(this.raw, this.arts_in_line, this.art_width)
-    //             }
-    //         });
+
+        },
+        methods: {
+            close_header_menu (event) {
+                if (this.header_menu_show == true && Object.is(this.$refs.menu_button, event.target) == false && Object.is(this.$refs.menu_button_img, event.target) == false) {
+                    this.header_menu_show = false;
+                }
+            }
         },
         delimiters: ['[[', ']]'],
     	components: {
