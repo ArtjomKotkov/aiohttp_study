@@ -131,7 +131,6 @@ def sql_in(field: str, list_, start: int):
 
 def record_to_dict(record):
     """ Convert record instance to dict"""
-    print(record)
     if not isinstance(record, list):
         return [{key: value for key, value in record.items()}]
     else:
@@ -655,11 +654,8 @@ class Comment(web.View):
             return web.HTTPOk(body=json.dumps(dict_response), content_type='application/json')
 
 
-def dict_by_fields(fields, data):
-    dict_ = {}
-    for field in fields:
-        dict_.update({field: data[field]})
-    return dict_
+def dict_by_fields(data, fields=None):
+    return {field: data[field] for field in fields} if fields else {key:value for key,value in data.items()}
 
 
 @routers_content.view('/album')
@@ -673,7 +669,7 @@ class Albums(web.View):
         limit: Limit of string in response.
         offset: Offset of rows in request.
         fields: Fields which have to be included in response.
-        arts: How many arts needs to return with album, default 0, return only art name,path and id
+        arts: How many arts needs to return with album, default 0, return only art name, path, width, height, id.
         user: Filter bu user.
 
         :return: Json dict with items dict which contain list of albums.
@@ -683,7 +679,7 @@ class Albums(web.View):
         limit = data.get('limit', 40)
         offset = data.get('offset', 0)
         fields = data.get('fields', None)
-        arts = data.get('arts', 0)
+        arts = data.get('arts', None)
         fields = fields.split(',') if fields else fields
         # Create where condition and save params for searching.
         where = []
@@ -696,20 +692,25 @@ class Albums(web.View):
             where[0] = 'WHERE ' + where[0]
         async with self.request.app['db'].acquire() as conn:
             sql_response = await conn.fetch(
-                f'SELECT * FROM album {" AND ".join(where)} LIMIT {limit} OFFSET {offset};', *params)
-            if fields:
-                response = dict(
-                    items=[dict_by_fields(fields, album) for album in sql_response]
-                )
-            else:
-                response = dict(
-                    items=[dict(
-                        id=album['id'],
-                        name=album['name'],
-                        description=album['description'],
-                        owner=album['owner'],
-                    ) for album in sql_response]
-                )
+                f'SELECT *, (SELECT COUNT(*) FROM art WHERE art.album_id = album.id) FROM album {" AND ".join(where)} LIMIT {limit} OFFSET {offset};', *params)
+            items = []
+            if sql_response:
+                for album in sql_response:
+                    new_album_record = {}
+                    record = dict_by_fields(album, fields)
+                    record.update(count=album['count']);
+                    if arts:
+                        arts_response = await conn.fetch(
+                            f"SELECT id, path, name, width, height FROM art WHERE album_id = $1 LIMIT {arts};",
+                            album['id'])
+                        record.update(arts=[dict(id=art['id'],
+                                                 path=art['path'],
+                                                 name=art['name'],
+                                                 width=art['width'],
+                                                 height=art['height']) for art in arts_response])
+                    items.append(record)
+            items.sort(key=lambda x: x['count'], reverse=True)
+            response = dict(items=items)
             return web.HTTPOk(body=json.dumps(response), content_type='application/json')
 
     async def post(self):
@@ -728,7 +729,6 @@ class Albums(web.View):
             owner = await conn.fetchrow('SELECT * FROM users WHERE name = $1;', data['owner'])
             if not owner:
                 response = dict(message=f'No user with name {data["owner"]}.')
-                print(response)
                 return web.HTTPNotFound(body=json.dumps(response), content_type='application/json')
             indexes = (f'${i}' for i in range(1, len(data.keys()) + 1))
             str_ = f'INSERT INTO album ({", ".join(data.keys())}) VALUES ({", ".join(indexes)});'

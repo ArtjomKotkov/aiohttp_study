@@ -419,7 +419,7 @@ async def albums_test_data(app):
         datetime_ = datetime.datetime.now()
         await conn.execute("""INSERT INTO art (name, description, path, date, owner, likes, views, width, height, album_id) 
                                                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);""", 'test_art',
-                           None, 'path', datetime_, 'Gold', 0, 0, 0, 0, None)
+                           None, 'path', datetime_, 'Gold', 0, 0, 0, 0, 1)
 
 
 async def test_albums_get(app, albums_test_data):
@@ -437,6 +437,11 @@ async def test_albums_get(app, albums_test_data):
     assert 'owner' in data_['items'][0]
     assert 'description' not in data_['items'][0]
     assert 'id' not in data_['items'][0]
+
+    response = await app['client'].get('/album?user=Gold&fields=name,owner&arts=6')
+    assert response.status == 200
+    data_ = await response.json()
+    assert len(data_['items'][0]['arts']) == 1
 
 
 async def test_albums_post(app, albums_test_data):
