@@ -37,7 +37,14 @@ async def user_page(request):
 @routers_user.get('/{user_name}/gallery/')
 @aiohttp_jinja2.template('user_app/templates/art_gallery.html')
 async def gallary_page(request):
-    return {'owner':request.match_info['user_name']}
+    async with request.app['db'].acquire() as conn:
+        sql_row = await conn.fetchrow('SELECT * FROM users WHERE name = $1;', request.match_info['user_name'])
+    return {'owner': dict(
+        name=sql_row['name'],
+        # photo=sql_row['photo']
+        # subscribers
+        # decription
+        )}
 
 
 

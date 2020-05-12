@@ -655,7 +655,7 @@ class Comment(web.View):
 
 
 def dict_by_fields(data, fields=None):
-    return {field: data[field] for field in fields} if fields else {key:value for key,value in data.items()}
+    return {field: data[field] for field in fields} if fields else {key: value for key, value in data.items()}
 
 
 @routers_content.view('/album')
@@ -692,7 +692,8 @@ class Albums(web.View):
             where[0] = 'WHERE ' + where[0]
         async with self.request.app['db'].acquire() as conn:
             sql_response = await conn.fetch(
-                f'SELECT *, (SELECT COUNT(*) FROM art WHERE art.album_id = album.id) FROM album {" AND ".join(where)} LIMIT {limit} OFFSET {offset};', *params)
+                f'SELECT *, (SELECT COUNT(*) FROM art WHERE art.album_id = album.id) FROM album {" AND ".join(where)} LIMIT {limit} OFFSET {offset};',
+                *params)
             items = []
             if sql_response:
                 for album in sql_response:
@@ -720,7 +721,9 @@ class Albums(web.View):
         owner, description, owner
         :return: New album object.
         """
-        data = await self.request.json()
+        print(self.request.content_type)
+        json_ = await self.request.json()
+        data = json_['data'] if 'data' in json_ else json_
         if not 'name' in data or not 'owner' in data:
             response = dict(message='No name or owner field in request body.')
             return web.HTTPBadRequest(body=json.dumps(response), content_type='application/json')
@@ -729,6 +732,11 @@ class Albums(web.View):
             owner = await conn.fetchrow('SELECT * FROM users WHERE name = $1;', data['owner'])
             if not owner:
                 response = dict(message=f'No user with name {data["owner"]}.')
+                return web.HTTPNotFound(body=json.dumps(response), content_type='application/json')
+            check_exist = await conn.fetchrow('SELECT id FROM album WHERE name = $1 and owner = $2;', data['name'],
+                                              data['owner'])
+            if check_exist:
+                response = dict(message=f'Album with name {data["name"]} on user {data["owner"]} already exist.')
                 return web.HTTPNotFound(body=json.dumps(response), content_type='application/json')
             indexes = (f'${i}' for i in range(1, len(data.keys()) + 1))
             str_ = f'INSERT INTO album ({", ".join(data.keys())}) VALUES ({", ".join(indexes)});'
