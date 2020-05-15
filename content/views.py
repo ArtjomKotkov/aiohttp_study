@@ -142,6 +142,22 @@ async def check_exist(conn, table: str, id):
     return True if check else False
 
 
+async def multiple_check_exist(conn, table: str, ids):
+    """
+    Check by ID field existence of every id in table.
+
+    :param conn:
+    :param table:
+    :param ids:
+    :return:
+    """
+    values = [f'${i}' for i in range(1, len(ids) + 1)]
+    sql_response = await conn.fetch(f'SELECT * FROM {table} WHERE id in ({",".join(values)})',
+                                    *list(map(lambda x: int(x), ids)))
+    new_ids = [row['id'] for row in sql_response]
+    return (True, new_ids) if len(new_ids) == len(ids) else (False, new_ids)
+
+
 @routers_content.view('/art', name='art')
 class FilesManager(web.View):
     async def post(self):
@@ -721,7 +737,6 @@ class Albums(web.View):
         owner, description, owner
         :return: New album object.
         """
-        print(self.request.content_type)
         json_ = await self.request.json()
         data = json_['data'] if 'data' in json_ else json_
         if not 'name' in data or not 'owner' in data:
@@ -737,7 +752,7 @@ class Albums(web.View):
                                               data['owner'])
             if check_exist:
                 response = dict(message=f'Album with name {data["name"]} on user {data["owner"]} already exist.')
-                return web.HTTPNotFound(body=json.dumps(response), content_type='application/json')
+                return web.HTTPBadRequest(body=json.dumps(response), content_type='application/json')
             indexes = (f'${i}' for i in range(1, len(data.keys()) + 1))
             str_ = f'INSERT INTO album ({", ".join(data.keys())}) VALUES ({", ".join(indexes)});'
             await conn.execute(str_, *data.values())
@@ -751,6 +766,24 @@ class Albums(web.View):
                 )]
             )
             return web.HTTPCreated(body=json.dumps(response), content_type='application/json')
+
+    async def delete(self):
+        """
+        Delete albums which have id in query ids list.
+        If some of albums don't exist, will delete those which exist, else return 404 error.
+        :return:
+        """
+        json_ = await self.request.json()
+        data = json_['data'] if 'data' in json_ else json_
+        async with self.request.app['db'].acquire() as conn:
+            status, new_ids = await multiple_check_exist(conn, 'album', data['ids'])
+            if not status and len(new_ids) == 0:
+                response = dict(message='Не найдено ни одного альбома из списка.')
+                return web.HTTPNotFound(body=json.dumps(response), content_type='application/json')
+            new_ids_row = ",".join([f'${i}' for i in range(1, len(new_ids) + 1)])
+            await conn.execute(f'DELETE FROM album WHERE id IN ({new_ids_row});', *new_ids)
+            response = dict(message=f'{len(new_ids)} albums successfully deleted.')
+            return web.HTTPOk(body=json.dumps(response), content_type='application/json')
 
 
 @routers_content.view('/album/{id}')

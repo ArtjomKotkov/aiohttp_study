@@ -1,7 +1,7 @@
 {% extends 'templates/main.html' %}
 
 {% block add_to_head %}
-<script type='module' src="{{ url('static', filename='vue_scripts/vue-gallery-app.js') }}"></script>
+<script type='module' src="{{ url('static', filename='vue_scripts/vue-gallery-app-album.js') }}"></script>
 {% endblock %}
 
 {% block content %}
@@ -19,10 +19,9 @@
 	</div>
 </div>
 
-<div id='app' class='pt-3'>
-<user_init owner='{{owner.name}}' user='{{user.name}}'></user_init>
-<albums></albums>
-
+<div id='app'>
+	<user_init owner='{{owner.name}}' user='{{user.name}}'></user_init>
+	<arts :get_request='"/content/art?user="+[[$root.owner]]+"$albums="+{{album}}' ></arts>
 </div>
 
 {% endblock %}

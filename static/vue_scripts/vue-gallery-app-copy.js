@@ -1,4 +1,3 @@
-import {arts} from './arts_component.js'
 
 $(document).ready(function () {
 
@@ -10,6 +9,20 @@ $(document).ready(function () {
             border:'1px solid green',
         }
     }
+
+    Vue.directive('click-outside', {
+      bind: function (el, binding, vnode) {
+        this.event = function (event) {
+          if (!(el == event.target || el.contains(event.target))) {
+            vnode.context[binding.expression](event);
+          }
+        };
+        document.body.addEventListener('click', this.event)
+      },
+      unbind: function (el) {
+        document.body.removeEventListener('click', this.event)
+      },
+    });
 
     Vue.component('user_init', {
         props: ['owner', 'user'],
@@ -106,7 +119,7 @@ $(document).ready(function () {
                 }
             },
             create_new_album () {
-                    var data = {
+                    data = {
                        name: this.album_field.data,
                        owner: this.$root.owner 
                     }
@@ -150,7 +163,11 @@ $(document).ready(function () {
                     <div class='album_body'></div>
                 </div>
             </div>
-            <arts v-if='show == 2' :get_request='"/content/art?user=" + $root.owner'></arts>
+            <div class="center" :style="{ width : center_div_width+'px', height : window_height+'px'}" v-if='show == 2'>
+                <template v-for='(row, index1) in info'>
+                    <photo v-for="(item, index2) in row" :item="item" :art_width='art_width' :menu='$refs.menu'></photo>
+                </template>
+            </div>
         </div>`,
         data: function () {
             return {
@@ -158,6 +175,11 @@ $(document).ready(function () {
                 selectable: false,
                 selected: [],
                 show: 1,
+                raw: null,
+                info: null,
+                art_width: 250,
+                window_width: null,
+                window_height: null,
             }
         },
         methods: {
@@ -168,7 +190,8 @@ $(document).ready(function () {
                 axios.delete('/content/album', {
                     data:JSON.stringify({ids:this.selected})
                 }).then((response) => {
-                    var new_albums = []
+                    new_albums = []
+                    console.log(this.selected)
                     for (var i = 0; i < this.albums.length; i++) {
                         if (!this.selected.includes(this.albums[i].id)) {
                             new_albums.push(this.albums[i]);
@@ -208,10 +231,61 @@ $(document).ready(function () {
             }).catch((error) => {
               console.error(error);
             });
+            this.window_width = window.innerWidth
+            this.window_height = window.innerHeight 
+            axios({
+                method: 'get',
+                url: '/content/art',
+                contentType: 'application/json'
+            })
+            .then((response) => {
+                this.raw = response.data.items.slice();
+                var newObject = Object.assign({}, response.data.items)
+                this.info = create_array(this.raw, app.arts_in_line, this.art_width)
+            });
+            window.addEventListener('resize', () => {
+                if (app.raw !== null){
+                    this.window_width = window.innerWidth
+                    this.window_height = window.innerHeight 
+                    app.info = create_array(this.raw, this.arts_in_line, this.art_width)
+                }
+                
+            });
         },
-        components: {
-            'arts':arts
-        }
+        computed: {
+            arts_in_line () {0
+                var value = parseInt((this.window_width - 24*2) / (this.art_width+10));
+                if (value < 1) {
+                    value = 1;
+                }
+                return value;
+            },
+            center_div_width ()  {
+                return this.arts_in_line * (this.art_width + 10)
+            }
+        },
+    })
+
+    Vue.component('photo', {
+        props: ['item', 'art_width', 'menu'],
+        template: `<span class='art' :style="offset(item.offsetX, item.offsetY)" @mouseover="hover = true" @mouseout="hover = false">
+                        <img v-bind:src="/media/ + item.path" class="img" :width="art_width+'px'" @click='enter_art'>
+                        <a href="#" class='art-owner' align="center" v-show='hover'>{{item.owner}}</a>
+                        <a href="#" class='art-menu' align="center" v-show='hover' ref='menu_button' @click.prevent='menu.open($event, $refs.menu_button, item)'>...</a>
+                   </span>`,
+        data: function () {
+            return {
+                hover: false,
+            }
+        },
+        methods: {
+            offset (valueX, valueY) {
+              return `transform: translateX(${ valueX }) translateY(${ valueY })`
+            },
+            enter_art () {
+                document.location.href = `/user/${this.item.owner}/art/${this.item.id}`;
+            }
+        },
     })
 
 	var app = new Vue({
@@ -230,3 +304,31 @@ $(document).ready(function () {
     })
 
 });
+
+function create_array(info, arts_in_line, art_width) {
+    var multi_array = [];
+    // Create mulri array
+    for (var index = 0; index < info.length; index = index + arts_in_line) {
+        multi_array.push(info.slice(index, index+arts_in_line));
+    }
+    // Save vertical offsets
+    var top_offset = []
+    for (var row = 0; row < multi_array.length; row ++) {
+        for (var col = 0; col < multi_array[row].length; col ++) {
+            // scale of art
+            let scale = art_width / multi_array[row][col]['width'];
+            // Calculation new height and offsetX/Y values
+            if (row == 0) {
+                top_offset[col] = parseInt(multi_array[row][col]['height'] * scale) + 10;
+                multi_array[row][col]['offsetY'] = 0;
+                multi_array[row][col]['offsetX'] = (art_width+10) * col + 'px';
+            } 
+            else {
+                multi_array[row][col]['offsetY'] = top_offset[col] + 'px';
+                top_offset[col] = top_offset[col] + parseInt(multi_array[row][col]['height']) * scale + 10;
+                multi_array[row][col]['offsetX'] = (art_width+10) * col + 'px';
+            }
+        }
+    }
+    return multi_array;
+}

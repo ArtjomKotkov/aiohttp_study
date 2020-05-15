@@ -76,7 +76,8 @@ textarea.InputField {
 .center {
 	display: inline-block;
 	position: relative;
-	margin: 0 auto;
+	margin: 16 auto;
+
 }
 
 .art {
@@ -255,7 +256,7 @@ textarea.InputField {
 
 .new-album-block {
 	width: 30%;
-  	height: 15%;
+  	height: 25%;
   	overflow: auto;
   	margin: auto;
   	position: absolute;

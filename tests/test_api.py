@@ -453,6 +453,14 @@ async def test_albums_post(app, albums_test_data):
         sql_check = await conn.fetchrow('SELECT * FROM album ORDER BY id DESC LIMIT 1;')
         assert sql_check['id'] == data_['items'][0]['id']
 
+async def test_albums_delete(app, albums_test_data):
+    data = dict(ids=[1,2])
+    response = await app['client'].delete('/album', json=data)
+    assert response.status == 200
+    async with app['db'].acquire() as conn:
+        sql_check = await conn.fetch('SELECT * FROM album;')
+        assert len(sql_check) == 0
+
 
 async def test_album_get(app, albums_test_data):
     response = await app['client'].get('/album/1?fields=name,owner')
