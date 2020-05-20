@@ -76,7 +76,8 @@ textarea.InputField {
 .center {
 	display: inline-block;
 	position: relative;
-	margin: 0 auto;
+	margin: 16 auto;
+
 }
 
 .art {
@@ -207,4 +208,195 @@ textarea.InputField {
 
 .change_cursor_pointer {
 	cursor: pointer;
+}
+
+.header_menu {
+	position: absolute;
+	right: 10px;
+	top: 75px;
+	border-radius: 15px;
+	display: inline-block;
+	background-color: white;
+}
+
+.header_menu hr {
+	margin: 5px 0 10px 0;
+	padding: 0;
+	width: calc(100% + 32px);
+}
+
+.header_menu_block_item {
+	background-color: white;
+	transition-duration: 0.2s;
+	border-radius: 15px;
+	width: 100%;
+	line-height: 16px;
+	margin: 2px 0 2px 0;
+	text-align: right;
+	padding: 2px 0 2px 0;
+	color: black;
+}
+
+.header_menu_block_item:hover {
+	background-color: #e8e8e8;
+	color: black;
+	text-decoration: none;
+}
+
+.header_menu_block_header {
+	background-color: white;
+	transition-duration: 0.2s;
+	border-radius: 15px;
+	width: 100%;
+	line-height: 16px;
+	margin: 1,5px 0 10px 0;
+	text-align: center;
+	font-weight: bold;
+}
+
+.new-album-block {
+	width: 30%;
+  	height: 25%;
+  	overflow: auto;
+  	margin: auto;
+  	position: absolute;
+  	top: 0; left: 0; bottom: 0; right: 0;
+  	padding: 16px;
+  	border-radius: 15px;
+	background-color: white;
+	min-height: 130px;
+	min-width: 250px;
+}
+
+.new-album-block hr {
+	margin: 5px 0 10px 0;
+	padding: 0;
+	width: calc(100% + 32px);
+}
+
+.close {
+	position: absolute;
+	top: 5px;
+	right: 5px;
+} 
+
+.default-button {
+	border-radius: 15px;
+	background-color: white;
+	-webkit-box-shadow: 0px 10px 30px -13px rgba(0,0,0,0.59);
+	-moz-box-shadow: 0px 10px 30px -13px rgba(0,0,0,0.59);
+	box-shadow: 0px 10px 30px -13px rgba(0,0,0,0.59);
+	transition-duration: 0.2s;
+	padding: 5px 10px;
+	color: black;
+	margin:0 5px 0 5px;
+}
+
+.error-button {
+	border-radius: 15px;
+	background-color: white;
+	-webkit-box-shadow: 0px 10px 30px -13px rgba(0,0,0,0.59);
+	-moz-box-shadow: 0px 10px 30px -13px rgba(0,0,0,0.59);
+	box-shadow: 0px 10px 30px -13px rgba(0,0,0,0.59);
+	transition-duration: 0.2s;
+	padding: 5px 10px;
+	margin:0 5px 0 5px;
+	background-color: #ff3d66;
+	color: black;
+}
+
+.error-button:hover {
+	background-color: #7800eb;
+	transition-duration: 0.2s;
+	text-decoration: none;
+	color: white;
+}
+
+.default-button:hover {
+	background-color: #cccccc;
+	transition-duration: 0.2s;
+	text-decoration: none;
+	color: black;
+}
+
+/*.default-button:focus {
+	background-color: #009C65;
+	color: white;
+	transition-duration: 0.2s;
+	outline: none;
+	border: none;
+}*/
+
+.button_focus {
+	background-color: #009C65;
+	color: white;
+	transition-duration: 0.2s;
+	outline: none;
+	border: none;
+}
+
+.width-third {
+	width: 33.33333333333333333333333333333333333333333333333333333333333%;
+}
+
+.single-album-block {
+	width: 150px;
+	height: 150px;
+	border-radius: 15px;
+	border: 1px solid gray;
+	margin: 10px;
+}
+
+.drag-and-drop-load_arts {
+	width: 70%;
+  	height: 60%;
+  	overflow: auto;
+  	margin: auto;
+  	position: absolute;
+  	top: 0; left: 0; bottom: 0; right: 0;
+  	padding: 16px;
+  	border-radius: 15px;
+	background-color: white;
+	min-height: 130px;
+	min-width: 250px;
+	z-index: 1000;
+}
+
+.loaded-img-zone-vertical {
+	overflow: hidden;
+	height: 100%
+}
+
+.loaded-img-zone-horizontal-img-outer {
+	height: 50%;
+}
+.loaded-img-zone-vertical-img {
+	display: block;
+}
+
+.loaded-img-zone-horizontal-img {
+	width: 100%;
+	display: block;
+}
+
+.drag-and-drop-zone {
+	border: 3px dashed gray;
+	overflow: hidden;
+}
+
+.drag-and-drop-zone-img {
+	height: 100%;
+	margin: 0 auto;
+	display: block;
+}
+
+.drag-and-drop-items-text-header {
+	font-weight: bold;
+	font-size: 14px;	
+}
+
+.drag-and-drop-items-hr {
+	margin: 0 0 5px 0;
+	margin-left: -8px;
+	width: calc(100% + 8px);
 }

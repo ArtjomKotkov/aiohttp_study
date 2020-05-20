@@ -6,8 +6,8 @@ users = sa.Table('users', META_DATA,
                  sa.Column('name', sa.String(length=30), primary_key=True),
                  sa.Column('password', sa.String),
                  sa.Column('grand', sa.BOOLEAN, default=False),
+                 sa.Column('photo', sa.String, nullable=True)
                  )
-
 
 users_subscribers = sa.Table(
     'users_subscribers', META_DATA,

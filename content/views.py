@@ -29,8 +29,9 @@ async def check_tags_existing(conn, tags: list):
     :param tags: list of tags
     :return: boolean, and ids of every tag, which are in database
     """
-    expr = [f'name = ${tag_index}' for tag_index in range(1, len(tags) + 1)]
-    sql_response = await conn.fetch(f'SELECT * FROM tag WHERE {" OR ".join(expr)};', *tags)
+
+    where_condition, pos = milti_where("name", tags, 1, "OR")
+    sql_response = await conn.fetch(f'SELECT * FROM tag WHERE {where_condition};', *tags)
     if len(sql_response) == len(tags):
         return True, [tag['id'] for tag in sql_response]
     else:
@@ -79,7 +80,6 @@ async def add_tags_to_art(conn, art_id, tags: list):
 
 async def delete_tags_from_art(conn, art_id, tags: list):
     not_ext_tags, ext_tags = await check_art_has_tags(conn, art_id, tags)
-    print(ext_tags)
     if not ext_tags:
         return 'Art already doesn\'t have all this tags.'
     exp = [f'tag_id = ${i}' for i in range(2, len(ext_tags) + 2)]
@@ -108,6 +108,54 @@ async def art_comments(conn, art_id):
         return sql_response
     else:
         return None
+
+
+def milti_where(field: str, list_, start: int, separator):
+    """
+    Create sql where condition.
+    Return condition-str, and start + len(list_) + 1
+    """
+    pos = len(list_) + start
+    return f" {separator} ".join([f'{field} = ${i}' for i in range(start, pos)]), pos
+
+
+def sql_in(field: str, list_, start: int):
+    """
+    Create sql where condition.
+    Return condition-str, and start + len(list_) + 1
+    """
+    pos = len(list_) + start
+
+    return f"{field} IN ({', '.join([f'${i}' for i in range(start, pos)])})", pos
+
+
+def record_to_dict(record):
+    """ Convert record instance to dict"""
+    if not isinstance(record, list):
+        return [{key: value for key, value in record.items()}]
+    else:
+        return [{key: value for key, value in row.items()} for row in record]
+
+
+async def check_exist(conn, table: str, id):
+    check = await conn.fetchrow(f'SELECT * FROM {table} WHERE id = $1', int(id))
+    return True if check else False
+
+
+async def multiple_check_exist(conn, table: str, ids):
+    """
+    Check by ID field existence of every id in table.
+
+    :param conn:
+    :param table:
+    :param ids:
+    :return:
+    """
+    values = [f'${i}' for i in range(1, len(ids) + 1)]
+    sql_response = await conn.fetch(f'SELECT * FROM {table} WHERE id in ({",".join(values)})',
+                                    *list(map(lambda x: int(x), ids)))
+    new_ids = [row['id'] for row in sql_response]
+    return (True, new_ids) if len(new_ids) == len(ids) else (False, new_ids)
 
 
 @routers_content.view('/art', name='art')
@@ -196,7 +244,6 @@ class FilesManager(web.View):
             - offset : offset from start | default = 0
             - order: [date, views, likes] | default = date
             - tags: list of tags, which art have to contain.
-            - fields: list of db field, which needs to return.
         All arts sorted by datetime.
         :return:
         """
@@ -205,40 +252,46 @@ class FilesManager(web.View):
         limit = data.get('limit', 40)
         offset = data.get('offset', 0)
         order = data.get('order', 'date')
-        tags = self.request.query.getall('tags', None)
+        albums = data.get('albums', None)
+        tags = data.get('tags', None)
         tags_ = None
-        fields = self.request.query.getall('fields', None)
-        if fields:
-            fields_ = ', '.join(fields)
-        else:
-            fields_ = '*'
+        fields = ", ".join(['id', 'name', 'description', 'path', 'likes', 'views', 'date', 'width', 'height', 'owner',
+                            'album_id'])
         async with self.request.app['db'].acquire() as conn:
             if tags:
-                tags_ids = await check_tags_existing(conn, tags)
+                exist, tags_ids = await check_tags_existing(conn, tags.split(','))
             else:
                 tags_ids = None
-            if user and tags_ids:
-                expr = [f'tag_art.tag_id = ${i}' for i in range(2, len(tags_ids + 2))]
-                where = f'{" OR ".join(expr)}'
-                sql_request = await conn.fetch(
-                    f'SELECT {fields_} FROM art INNER JOIN tag_art ON tag_art.art_id = art.id WHERE art.owner = $1 AND {where} ORDER BY {order} DESC LIMIT {limit} OFFSET {offset};',
-                    user)
-                tags_ = [await art_tags(conn, art['id']) for art in sql_request]
-            elif not user and tags_ids:
-                expr = [f'tag_art.tag_id = ${i}' for i in range(1, len(tags_ids + 1))]
-                where = f'AND {" OR ".join(expr)}'
-                sql_request = await conn.fetch(
-                    f'SELECT {fields_} FROM art INNER JOIN tag_art ON tag_art.art_id = art.id WHERE {where} ORDER BY {order} DESC LIMIT {limit} OFFSET {offset};',
-                    user)
-                tags_ = [await art_tags(conn, art['id']) for art in sql_request]
-            elif user and not tags_ids:
-                sql_request = await conn.fetch(
-                    f'SELECT {fields_} FROM art WHERE art.owner = $1 ORDER BY {order} DESC LIMIT {limit} OFFSET {offset};',
-                    user)
-            else:
-                sql_request = await conn.fetch(
-                    f'SELECT {fields_} FROM art ORDER BY {order} DESC LIMIT {limit} OFFSET {offset};')
-            await conn.close()
+
+            where = []
+            params = []
+            start = 1
+            from_ = 'FROM art'
+            group_by = ''
+            if user:
+                where.append('art.owner = $1')
+                params.append(user)
+                start = 2
+            if tags_ids:
+                expr1, start = sql_in('tag_art.tag_id', tags_ids, start)
+                from_ = 'FROM art INNER JOIN tag_art ON tag_art.art_id = art.id'
+                group_by = f'GROUP BY art.id HAVING COUNT(art.id) = {len(tags_ids)}'
+                where.append(expr1)
+                for tag in tags_ids:
+                    params.append(int(tag))
+            if albums:
+                albums = albums.split(',')
+                expr3, start = sql_in('art.album_id', albums, start)
+                where.append(expr3)
+                for album in albums:
+                    params.append(int(album))
+            if where:
+                where[0] = 'WHERE ' + where[0]
+            sql_expression = f'SELECT DISTINCT {fields} {from_} {" AND ".join(where)} {group_by} ORDER BY {order} DESC LIMIT {limit} OFFSET {offset};'
+            sql_response = await conn.fetch(sql_expression, *params)
+            if sql_response and tags_ids:
+                tags_ = [await art_tags(conn, art['id']) for art in sql_response]
+
         if tags_:
             dict_response = dict(items=[dict(id=row['id'],
                                              name=row['name'],
@@ -250,7 +303,7 @@ class FilesManager(web.View):
                                              owner=row['owner'],
                                              width=row['width'],
                                              height=row['height'],
-                                             tags=tags) for row, tags in zip(sql_request, tags_)])
+                                             tags=tags) for row, tags in zip(sql_response, tags_)])
         else:
             dict_response = dict(items=[dict(id=row['id'],
                                              name=row['name'],
@@ -262,7 +315,7 @@ class FilesManager(web.View):
                                              owner=row['owner'],
                                              width=row['width'],
                                              height=row['height'],
-                                             tags=None) for row in sql_request])
+                                             tags=None) for row in sql_response])
         return web.HTTPOk(body=json.dumps(dict_response), content_type='application/json')
 
 
@@ -497,7 +550,6 @@ class ForeignTag(web.View):
         data = await self.request.json()
         async with self.request.app['db'].acquire() as conn:
             row = await conn.fetchrow("SELECT * FROM art WHERE id = $1;", int(self.request.match_info['id']))
-            print(row)
             if not row:
                 return web.HTTPNotFound(
                     body=json.dumps(dict(message=f'No art with id {self.request.match_info["id"]}.')))
@@ -610,9 +662,198 @@ class Comment(web.View):
             comment = await conn.fetchrow('SELECT * FROM comment WHERE id = $1;', int(self.request.match_info['id']))
             await conn.close()
             dict_response = dict(items=[dict(id=comment['id'],
-                                            author=comment['author'],
-                                            art_id=comment['art_id'],
-                                            comment_id=comment['comment_id'],
-                                            text=comment['text'],
-                                            date=comment['date'].strftime('%y-%m-%d-%H-%M-%S'))])
+                                             author=comment['author'],
+                                             art_id=comment['art_id'],
+                                             comment_id=comment['comment_id'],
+                                             text=comment['text'],
+                                             date=comment['date'].strftime('%y-%m-%d-%H-%M-%S'))])
             return web.HTTPOk(body=json.dumps(dict_response), content_type='application/json')
+
+
+def dict_by_fields(data, fields=None):
+    return {field: data[field] for field in fields} if fields else {key: value for key, value in data.items()}
+
+
+@routers_content.view('/album')
+class Albums(web.View):
+
+    async def get(self):
+        """
+        Return list of albums in json format.
+
+        Accept query string with params:
+        limit: Limit of string in response.
+        offset: Offset of rows in request.
+        fields: Fields which have to be included in response.
+        arts: How many arts needs to return with album, default 0, return only art name, path, width, height, id.
+        user: Filter bu user.
+
+        :return: Json dict with items dict which contain list of albums.
+        """
+        data = self.request.query
+        user = data.get('user', None)
+        limit = data.get('limit', 40)
+        offset = data.get('offset', 0)
+        fields = data.get('fields', None)
+        arts = data.get('arts', None)
+        fields = fields.split(',') if fields else fields
+        # Create where condition and save params for searching.
+        where = []
+        params = []
+        start = 1
+        if user:
+            where.append(f'owner = ${start}')
+            params.append(user)
+        if where:
+            where[0] = 'WHERE ' + where[0]
+        async with self.request.app['db'].acquire() as conn:
+            sql_response = await conn.fetch(
+                f'SELECT *, (SELECT COUNT(*) FROM art WHERE art.album_id = album.id) FROM album {" AND ".join(where)} LIMIT {limit} OFFSET {offset};',
+                *params)
+            items = []
+            if sql_response:
+                for album in sql_response:
+                    new_album_record = {}
+                    record = dict_by_fields(album, fields)
+                    record.update(count=album['count']);
+                    if arts:
+                        arts_response = await conn.fetch(
+                            f"SELECT id, path, name, width, height FROM art WHERE album_id = $1 LIMIT {arts};",
+                            album['id'])
+                        record.update(arts=[dict(id=art['id'],
+                                                 path=art['path'],
+                                                 name=art['name'],
+                                                 width=art['width'],
+                                                 height=art['height']) for art in arts_response])
+                    items.append(record)
+            items.sort(key=lambda x: x['count'], reverse=True)
+            response = dict(items=items)
+            return web.HTTPOk(body=json.dumps(response), content_type='application/json')
+
+    async def post(self):
+        """
+        Create new album.
+        Accept json type body with params:
+        owner, description, owner
+        :return: New album object.
+        """
+        json_ = await self.request.json()
+        data = json_['data'] if 'data' in json_ else json_
+        if not 'name' in data or not 'owner' in data:
+            response = dict(message='No name or owner field in request body.')
+            return web.HTTPBadRequest(body=json.dumps(response), content_type='application/json')
+        async with self.request.app['db'].acquire() as conn:
+            # Check owner exist.
+            owner = await conn.fetchrow('SELECT * FROM users WHERE name = $1;', data['owner'])
+            if not owner:
+                response = dict(message=f'No user with name {data["owner"]}.')
+                return web.HTTPNotFound(body=json.dumps(response), content_type='application/json')
+            check_exist = await conn.fetchrow('SELECT id FROM album WHERE name = $1 and owner = $2;', data['name'],
+                                              data['owner'])
+            if check_exist:
+                response = dict(message=f'Album with name {data["name"]} on user {data["owner"]} already exist.')
+                return web.HTTPBadRequest(body=json.dumps(response), content_type='application/json')
+            indexes = (f'${i}' for i in range(1, len(data.keys()) + 1))
+            str_ = f'INSERT INTO album ({", ".join(data.keys())}) VALUES ({", ".join(indexes)});'
+            await conn.execute(str_, *data.values())
+            sql_response = await conn.fetchrow('SELECT * FROM album ORDER BY id DESC LIMIT 1;')
+            response = dict(
+                items=[dict(
+                    id=sql_response['id'],
+                    name=sql_response['name'],
+                    description=sql_response['description'],
+                    owner=sql_response['owner'],
+                )]
+            )
+            return web.HTTPCreated(body=json.dumps(response), content_type='application/json')
+
+    async def delete(self):
+        """
+        Delete albums which have id in query ids list.
+        If some of albums don't exist, will delete those which exist, else return 404 error.
+        :return:
+        """
+        json_ = await self.request.json()
+        data = json_['data'] if 'data' in json_ else json_
+        async with self.request.app['db'].acquire() as conn:
+            status, new_ids = await multiple_check_exist(conn, 'album', data['ids'])
+            if not status and len(new_ids) == 0:
+                response = dict(message='Не найдено ни одного альбома из списка.')
+                return web.HTTPNotFound(body=json.dumps(response), content_type='application/json')
+            new_ids_row = ",".join([f'${i}' for i in range(1, len(new_ids) + 1)])
+            await conn.execute(f'DELETE FROM album WHERE id IN ({new_ids_row});', *new_ids)
+            response = dict(message=f'{len(new_ids)} albums successfully deleted.')
+            return web.HTTPOk(body=json.dumps(response), content_type='application/json')
+
+
+@routers_content.view('/album/{id}')
+class Album(web.View):
+
+    async def get(self):
+        """
+        Return items list with only one album.
+
+        Accept query string with params:
+        fields: Fields which have to be included in response.
+
+        :return: Json dict with items dict which contain list with album.
+        """
+        fields = self.request.query.get('fields', '*')
+        fields = fields.split(',') if fields != '*' else fields
+        async with self.request.app['db'].acquire() as conn:
+            sql_response = await conn.fetchrow(f'SELECT {", ".join(fields)} FROM album WHERE id = $1;',
+                                               int(self.request.match_info['id']))
+            if not sql_response:
+                response = dict(message=f'No album with id {self.request.match_info["id"]}.')
+                return web.HTTPNotFound(body=json.dumps(response), content_type='application/json')
+            response = dict(items=record_to_dict(sql_response))
+        return web.HTTPOk(body=json.dumps(response), content_type='application/json')
+
+    async def delete(self):
+        """Delete album by id."""
+        async with self.request.app['db'].acquire() as conn:
+            if not await check_exist(conn, 'album', self.request.match_info['id']):
+                response = dict(message=f'No album with id {self.request.match_info["id"]}.')
+                return web.HTTPNotFound(body=json.dumps(response), content_type='application/json')
+            await conn.fetchrow("DELETE FROM album WHERE id = $1;", int(self.request.match_info['id']))
+        response = dict(message='Album successfuly deleted.')
+        return web.HTTPOk(body=json.dumps(response), content_type='application/json')
+
+    async def put(self):
+        """Update data about album"""
+        if not self.request.can_read_body:
+            response = dict(message='Empty request body.')
+            return web.HTTPBadRequest(body=json.dumps(response), content_type='application/json')
+        data = await self.request.json()
+        expr = [f'{param} = ${i}' for param, i in zip(data.keys(), range(1, len(data) + 1))]
+        async with self.request.app['db'].acquire() as conn:
+            await conn.execute(f"UPDATE album SET {', '.join(expr)} WHERE id = ${len(data) + 1};", *data.values(),
+                               int(self.request.match_info['id']))
+            sql_response = await conn.fetchrow('SELECT * FROM album WHERE id = $1;', int(self.request.match_info['id']))
+            response = dict(
+                items=[dict(
+                    id=sql_response['id'],
+                    name=sql_response['name'],
+                    description=sql_response['description'],
+                    owner=sql_response['owner'],
+                )]
+            )
+            return web.HTTPOk(body=json.dumps(response), content_type='application/json')
+
+    async def post(self):
+        """Add art with id in body to album."""
+        if not self.request.can_read_body:
+            response = dict(message='Empty request body.')
+            return web.HTTPBadRequest(body=json.dumps(response), content_type='application/json')
+        data = await self.request.json()
+        async with self.request.app['db'].acquire() as conn:
+            if not await check_exist(conn, 'album', self.request.match_info['id']):
+                response = dict(message=f'No album with id {self.request.match_info["id"]}.')
+                return web.HTTPNotFound(body=json.dumps(response), content_type='application/json')
+            if not await check_exist(conn, 'art', int(data['id'])):
+                response = dict(message=f'No art with id {int(data["id"])}.')
+                return web.HTTPNotFound(body=json.dumps(response), content_type='application/json')
+            await conn.execute('UPDATE art SET album_id=$1 WHERE id = $2;', int(self.request.match_info['id']),
+                               int(data['id']))
+            response = dict(message='Successful update.')
+            return web.HTTPOk(body=json.dumps(response), content_type='application/json')

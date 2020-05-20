@@ -34,8 +34,31 @@ async def user_page(request):
 async def user_page(request):
     pass
 
+@routers_user.get('/{user_name}/gallery/')
+@aiohttp_jinja2.template('user_app/templates/art_gallery.html')
+async def gallery_page(request):
+    async with request.app['db'].acquire() as conn:
+        sql_row = await conn.fetchrow('SELECT * FROM users WHERE name = $1;', request.match_info['user_name'])
+    return {'owner': dict(
+        name=sql_row['name'],
+        # photo=sql_row['photo']
+        # subscribers
+        # decription
+        )}
 
-# User Auth views
+@routers_user.get('/{user_name}/gallery/{album_id}')
+@aiohttp_jinja2.template('user_app/templates/art_gallery_album.html')
+async def gallery_album_page(request):
+    async with request.app['db'].acquire() as conn:
+        sql_row = await conn.fetchrow('SELECT * FROM users WHERE name = $1;', request.match_info['user_name'])
+    return {'owner': dict(
+        name=sql_row['name'],
+        # photo=sql_row['photo']
+        # subscribers
+        # decription
+        ), 'album': request.match_info['album_id']}
+
+
 
 @routers_user.view('/register/', name='user_register')
 class RegisterView(web.View):

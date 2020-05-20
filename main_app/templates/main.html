@@ -1,24 +1,13 @@
 {% extends 'templates/main.html' %}
 
 {% block add_to_head %}
-<script src="{{ url('static', filename='vue_scripts/vue-main-page-app.js') }}"></script>
+<script type='module' src="{{ url('static', filename='vue_scripts/vue-main-page-app.js') }}"></script>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid">
-    <div class="row px-4" id="app">
-    	<div class="center" :style="{ width : center_div_width+'px', height : window_height+'px'}">
-    		<template v-for='(row, index1) in info'>
-		        <photo v-for="(item, index2) in row" :item="item" :art_width='art_width' :menu='$refs.menu'></photo>
-    		</template>
-    	</div>
-    	<cmenu ref='menu'>
-    		<template v-slot:header>
-			    Здесь мог быть заголовок меню
-			</template>
-	        <cmenu_component :name='"Download"'>Скачать</cmenu_component>
-	        <cmenu_component :name='"Share"'>Поделиться</cmenu_component>
-    	</cmenu>
+    <div id="app" class='d-flex flex-column align-items-center justify-content-start'>
+    	<arts get_request='/content/art' ></arts>
     </div>
 </div>
 {% endblock %}

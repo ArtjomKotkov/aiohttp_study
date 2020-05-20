@@ -8,10 +8,10 @@ from aiohttp import web, MultipartWriter
 from sqlalchemy import create_engine, MetaData
 
 from user_app.models import users, groups, users_subscribers, groups_users
-from content.models import art, comment, tag, tag_art
+from content.models import art, comment, tag, tag_art, albums
 
 from user_app.views import Roles, Role, RoleMembers
-from content.views import FileManager, FilesManager, Tag, Tags, ForeignTag, Comments, Comment
+from content.views import FileManager, FilesManager, Tag, Tags, ForeignTag, Comments, Comment, Albums, Album
 
 
 # Creating tables in test database.
@@ -19,7 +19,7 @@ from content.views import FileManager, FilesManager, Tag, Tags, ForeignTag, Comm
 def create_tables():
     engine = create_engine('postgresql://saint:190898@localhost:5432/tests')
     MetaData().create_all(bind=engine,
-                          tables=[users, groups, users_subscribers, groups_users, art, comment, tag, tag_art])
+                          tables=[users, groups, users_subscribers, groups_users, albums, art, comment, tag, tag_art])
 
 
 # Creating client instance in test database, and 'db' port for connection to database.
@@ -36,6 +36,8 @@ async def app(create_tables, aiohttp_server, aiohttp_client):
     app.router.add_view('/tag_id/{id}', ForeignTag)
     app.router.add_view('/comment', Comments)
     app.router.add_view('/comment/{id}', Comment)
+    app.router.add_view('/album', Albums)
+    app.router.add_view('/album/{id}', Album)
     app['db'] = await asyncpg.create_pool('postgresql://saint:190898@localhost:5432/tests')
     server = await aiohttp_server(app)
     client = await aiohttp_client(server)
@@ -44,7 +46,7 @@ async def app(create_tables, aiohttp_server, aiohttp_client):
     finally:
         engine = create_engine('postgresql://saint:190898@localhost:5432/tests')
         MetaData().drop_all(bind=engine,
-                            tables=[users, groups, users_subscribers, groups_users, art, comment, tag, tag_art])
+                            tables=[users, groups, users_subscribers, groups_users, albums, art, comment, tag, tag_art])
 
 
 # Roles tests.
@@ -175,7 +177,21 @@ async def art_test_data(app):
     async with app['db'].acquire() as conn:
         await conn.execute('INSERT INTO users (name, password) VALUES ($1, $2);', 'Gold', 'Test')
         await conn.execute('INSERT INTO users (name, password) VALUES ($1, $2);', 'Artem', 'Test')
-        for i in range(40):
+        await conn.execute('INSERT INTO album (name, owner) VALUES ($1, $2)', 'test', 'Artem')
+        await conn.execute('INSERT INTO album (name, owner) VALUES ($1, $2)', 'test2', 'Artem')
+        for i in range(3):
+            datetime_ = datetime.datetime.now()
+            await conn.execute("""INSERT INTO art (name, description, path, date, owner, likes, views, width, height, album_id) 
+                                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);""", test_data['name'], None,
+                               test_data['path'], datetime_,
+                               'Artem', 0, 0, 0, 0, 1)
+        for i in range(3):
+            datetime_ = datetime.datetime.now()
+            await conn.execute("""INSERT INTO art (name, description, path, date, owner, likes, views, width, height, album_id) 
+                                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);""", test_data['name'], None,
+                               test_data['path'], datetime_,
+                               'Artem', 0, 0, 0, 0, 2)
+        for i in range(34):
             datetime_ = datetime.datetime.now()
             await conn.execute("""INSERT INTO art (name, description, path, date, owner, likes, views, width, height) 
                                       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);""", test_data['name'], None,
@@ -207,15 +223,30 @@ async def art_test_data(app):
 #         assert response.status == 201
 
 async def test_arts_get(app, art_test_data):
-    response = await app['client'].get('/art?limit=20')
+    # Simple test
+    response = await app['client'].get('/art?limit=1')
     data = await response.json()
-    assert len(data['items']) == 20
-
-
-async def extended_test_arts_get(app, art_test_data):
-    response = await app['client'].get('/art?limit=20&tags=test_tag1,test_tag2')
+    assert len(data['items']) == 1
+    # Test with tags
+    response = await app['client'].get('/art?user=Artem')
     data = await response.json()
     assert len(data['items']) == 6
+    # Test with album
+    response = await app['client'].get('/art?tags=test_tag1,test_tag2')
+    data = await response.json()
+    assert len(data['items']) == 5
+    response = await app['client'].get('/art?albums=1')
+    data = await response.json()
+    assert len(data['items']) == 3
+    response = await app['client'].get('/art?albums=1,2')
+    data = await response.json()
+    assert len(data['items']) == 6
+
+
+# async def extended_test_arts_get(app, art_test_data):
+#     response = await app['client'].get('/art?limit=20&tags=test_tag1,test_tag2')
+#     data = await response.json()
+#     assert len(data['items']) == 6
 
 
 async def test_art_get(app, art_test_data):
@@ -342,10 +373,11 @@ async def comments_test_data(app):
     async with app['db'].acquire() as conn:
         datetime_ = datetime.datetime.now()
         await conn.execute('INSERT INTO users (name, password) VALUES ($1, $2);', 'Gold', 'Test')
-        await conn.execute("""INSERT INTO art (name, description, path, date, owner, likes, views, width, height) 
-                                              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);""", test_data['name'], None,
+        await conn.execute("""INSERT INTO art (name, description, path, date, owner, likes, views, width, height, album_id) 
+                                              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);""", test_data['name'],
+                           None,
                            test_data['path'], datetime_,
-                           test_data['user'], 0, 0, 0, 0)
+                           test_data['user'], 0, 0, 0, 0, None)
         for i in range(2):
             await conn.execute('INSERT INTO comment (author, art_id, text, date) VALUES ($1, $2, $3, $4)', 'Gold', 1,
                                'some text', datetime_)
@@ -358,8 +390,6 @@ async def test_comments_get(app, comments_test_data):
     data = await response.json()
     assert len(data['items']) == 2
 
-# async def test_comments_post(app, comments_test_data):
-#     pass
 
 async def test_comment_delete(app, comments_test_data):
     response = await app['client'].delete('/comment/1')
@@ -368,6 +398,7 @@ async def test_comment_delete(app, comments_test_data):
         sql_check = await conn.fetch('SELECT * FROM comment;')
         assert len(sql_check) == 1
 
+
 async def test_comment_put(app, comments_test_data):
     data = dict(text='new text', comment_id=2)
     response = await app['client'].put('/comment/1', json=data)
@@ -375,3 +406,95 @@ async def test_comment_put(app, comments_test_data):
     data_ = await response.json()
     assert data_['items'][0]['text'] == data['text']
     assert data_['items'][0]['comment_id'] == data['comment_id']
+
+
+# Albums tests
+
+@pytest.fixture
+async def albums_test_data(app):
+    async with app['db'].acquire() as conn:
+        await conn.execute('INSERT INTO users (name, password) VALUES ($1, $2);', 'Gold', 'Test')
+        await conn.execute('INSERT INTO album (name, owner) VALUES ($1, $2), ($3, $4);', 'Test1', 'Gold', 'Test2',
+                           'Gold')
+        datetime_ = datetime.datetime.now()
+        await conn.execute("""INSERT INTO art (name, description, path, date, owner, likes, views, width, height, album_id) 
+                                                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);""", 'test_art',
+                           None, 'path', datetime_, 'Gold', 0, 0, 0, 0, 1)
+
+
+async def test_albums_get(app, albums_test_data):
+    # Simple request
+    response = await app['client'].get('/album')
+    assert response.status == 200
+    data_ = await response.json()
+    assert len(data_['items']) == 2
+    # Extended request
+    response = await app['client'].get('/album?user=Gold&fields=name,owner')
+    assert response.status == 200
+    data_ = await response.json()
+    assert len(data_['items']) == 2
+    assert 'name' in data_['items'][0]
+    assert 'owner' in data_['items'][0]
+    assert 'description' not in data_['items'][0]
+    assert 'id' not in data_['items'][0]
+
+    response = await app['client'].get('/album?user=Gold&fields=name,owner&arts=6')
+    assert response.status == 200
+    data_ = await response.json()
+    assert len(data_['items'][0]['arts']) == 1
+
+
+async def test_albums_post(app, albums_test_data):
+    data = dict(name='test1', owner='Gold')
+    response = await app['client'].post('/album', json=data)
+    assert response.status == 201
+    data_ = await response.json()
+    async with app['db'].acquire() as conn:
+        sql_check = await conn.fetchrow('SELECT * FROM album ORDER BY id DESC LIMIT 1;')
+        assert sql_check['id'] == data_['items'][0]['id']
+
+async def test_albums_delete(app, albums_test_data):
+    data = dict(ids=[1,2])
+    response = await app['client'].delete('/album', json=data)
+    assert response.status == 200
+    async with app['db'].acquire() as conn:
+        sql_check = await conn.fetch('SELECT * FROM album;')
+        assert len(sql_check) == 0
+
+
+async def test_album_get(app, albums_test_data):
+    response = await app['client'].get('/album/1?fields=name,owner')
+    assert response.status == 200
+    data_ = await response.json()
+    assert len(data_['items']) == 1
+    assert 'Test1' == data_['items'][0]['name']
+    assert 'name' in data_['items'][0]
+    assert 'owner' in data_['items'][0]
+    assert 'description' not in data_['items'][0]
+    assert 'id' not in data_['items'][0]
+
+
+async def test_album_delete(app, albums_test_data):
+    response = await app['client'].delete('/album/1')
+    assert response.status == 200
+    async with app['db'].acquire() as conn:
+        sql_check = await conn.fetch('SELECT * FROM album;')
+    assert len(sql_check) == 1
+
+
+async def test_album_put(app, albums_test_data):
+    data = dict(name='new_name', description='New description')
+    response = await app['client'].put('/album/1', json=data)
+    assert response.status == 200
+    data_ = await response.json()
+    assert data_['items'][0]['name'] == 'new_name'
+    assert data_['items'][0]['description'] == 'New description'
+
+
+async def test_album_post(app, albums_test_data):
+    data = dict(id='1')
+    response = await app['client'].post('/album/1', json=data)
+    assert response.status == 200
+    async with app['db'].acquire() as conn:
+        sql_check = await conn.fetch('SELECT * FROM art WHERE album_id = 1;')
+    assert len(sql_check) == 1

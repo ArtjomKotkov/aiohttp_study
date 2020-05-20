@@ -1,0 +1,27 @@
+{% extends 'templates/main.html' %}
+
+{% block add_to_head %}
+<script type='module' src="{{ url('static', filename='vue_scripts/vue-gallery-app-album.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+
+<div class='d-flex flex-row justify-content-between align-items-center'>
+	<div class='width-third'>
+		{{owner.name}}
+	</div>
+	<div class='width-third'>
+		<!-- User photo	 -->
+		<div style='width: 150px; height: 150px; border-radius: 50%; background-color: gray; margin: auto;'></div>
+	</div>
+	<div class='width-third'>
+		Какое нить описание
+	</div>
+</div>
+
+<div id='app'>
+	<user_init owner='{{owner.name}}' user='{{user.name}}'></user_init>
+	<arts :get_request='"/content/art?user="+[[$root.owner]]+"$albums="+{{album}}' ></arts>
+</div>
+
+{% endblock %}

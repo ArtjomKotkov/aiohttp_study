@@ -31,13 +31,31 @@
                         <template v-slot:description>
                             Поиск можно производить по имени изображения и тегам, поиск тегов происходит по введенному значению, ' * ' выводит список всех доступных тегов.
                         </template>
-                    </search-input>  
+                    </search-input>
                 </div>
                 <div class="mx-2">
                     <div class='d-flex flex-row justify-content-end h-100 align-items-center pr-4'>
-                        <div class='d-block header-button' style="width: 50px">
-                            <img src="{{ url('static', filename='img/user.png') }}" width="25px" height="25px" alt="">
-                        </div>
+                        {% if not user.is_authenticated %}
+                            <div class='d-block header-button' style="width: 50px">
+                                <a href="/user/auth/"><img src="{{ url('static', filename='img/user.png') }}" width="25px" height="25px" alt=""></a>
+                            </div>
+                        {% else %}
+                            <div class='d-block header-button' ref='menu_button' style="width: 50px" @click='header_menu_show = true'>
+                                <a href="#">
+                                    <img ref='menu_button_img' src="{{ url('static', filename='img/user.png') }}" width="25px" height="25px">
+                                    <img src="{{ url('static', filename='img/arrow.png') }}" width="10px" height="20px" style='transform: rotate(90deg); position: relative; left:8.5px; bottom: 35px;'>
+                                </a>
+                                <div class='header_menu shadow p-3' v-show='header_menu_show' v-click-outside='close_header_menu'>
+                                    <div class='header_menu_block d-flex flex-column justify-content-between align-items-center'>
+                                        <span class='d-block header_menu_block_header'>Аккаунт</span>
+                                        <hr>
+                                        <a href="" class='d-block header_menu_block_item'>Моя галерея</a>
+                                        <a href="" class='d-block header_menu_block_item'>Управление аккаунтом</a>
+                                        <a href="/user/logout/" class='d-block header_menu_block_item'>Выход</a>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
