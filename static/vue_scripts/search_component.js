@@ -2,14 +2,14 @@
 export {search};
 
 var search = Vue.component('search-input', {
-	props: ['searchIcon']
+	props: ['searchIcon', 'maxSelect'],
 	inheritAttrs: false,
     template: `
     <div>
     	<div class='d-flex flex-row justify-content-start align-items-center input_search_box_input_outer'>
     		<div class='input_search_box_item d-inline-block' v-for="(tag, index) in selected_tags"><span>{{tag.name}}</span><img @click='delete_tag' class='mx-1' style='margin: 6px 0; filter: opacity(20%);' src="/static/img/cross.png" width='12px' height='12px' alt="" /></div>
     		<input v-model='data' ref='input_to_focus' class=' p-2 input_search_box_input_inner flex-grow-1 d-inline-block' type="text" @focus="focused = true" @blur="focused = false">
-    		<img v-if='searchIcon' class='mx-2 change_cursor_pointer' v-if="selected_tags.length != 0 || data != ''" @click='search' src="/static/img/search.png" width='26px' height='26px' alt="" />
+    		<img class='mx-2 change_cursor_pointer' v-if="(selected_tags.length != 0 || data != '') && searchIcon == true" @click='search' src="/static/img/search.png" width='26px' height='26px' alt="" />
     	</div>
     	<div v-if='focused && tags_match == null' class="shadow input_search_box_additional_box" id='input_search_box'>
     		<p><slot name='description'></slot></p>
@@ -68,6 +68,9 @@ var search = Vue.component('search-input', {
 			}
 		},
 		select (index) {
+			if (this.selected_tags.length == this.maxSelect) {
+				return;
+			}
 			if (this.selected_tags.includes(this.tags_match[index]) == false) {
 				this.selected_tags.push(this.tags_match[index]);
 				this.data = '';

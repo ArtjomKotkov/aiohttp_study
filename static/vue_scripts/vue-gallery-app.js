@@ -1,4 +1,5 @@
 import {arts} from './arts_component.js'
+import {search} from './search_component.js'
 
 $(document).ready(function () {
 
@@ -27,48 +28,52 @@ $(document).ready(function () {
     Vue.component('load-arts', {
         template: `
         <div class='d-fles flex-column align-items-center'>
-            <div class='drag-and-drop-load_arts shadow d-flex flex-row justify-content-center align-items-center' v-if='selected != null'>
-                <img class='close d-inline-block' @click='' src="https://img.icons8.com/material-sharp/24/000000/railroad-crossing-sign--v2.png"/>
-                <div class='w-50 h-100 p-3'>
-                    <div class='drag-and-drop-zone w-100 h-50' @dragover.prevent @drop.prevent='ondrop' @dragenter.prevent='ondragenter' @dragleave.prevent='ondragleave'>
-                        <img class='img-fluid drag-and-drop-zone-img' v-if='selected != null' :src="dnd_img" alt="" />
-                    </div>
-                    <div class='w-100 h-50 p-3 d-flex flex-column align-items-center justify-content-start' v-if='selected != null'>
-                        <input v-model='files[selected].name' type="text" />
-                        <textarea v-model='files[selected].description'/>
-
-                        
-                        <a href='#' class='default-button'>Загрузить</a>
-                    </div>
+            <div class='drag-and-drop-load_arts shadow p-0' v-if='pre_loaded'>
+                <div v-if='full_loaded == false'>
+                    <img src="/static/img/loading.gif" alt="" />
                 </div>
-                <div class='p-2 drag-and-drop-items w-50 h-100 d-flex flex-column justify-content-start align-items-left'>
-                    <div v-for='(item, index) in files' class='d-flex flex-row justify-content-start align-items-top m-2 shadow w-100' @click='selected = index'>
-                        <img :src="item.img" width='160px' alt="" />
-                        <div class='ml-2 w-100'>
-                            <div class='drag-and-drop-items-text-header'>Название: {{name_calc(item.name)}}</div>
-                            <div class='drag-and-drop-items-text-header mt-1'>Описание</div>
-                            <hr class='drag-and-drop-items-hr'>
-                            <div><p v-html='desc_calc(item.description)' style='color:gray;'></p></div>
+                <div v-if='full_loaded == true' class='h-100'>
+                    <div v-if='format == 1' class='d-flex flex-row justify-content-start align-items-center h-100'>
+                        <div class='h-100 loaded-img-zone-vertical'>
+                            <img :src="file.img" alt="" class='loaded-img-zone-vertical-img'/>
                         </div>
+                        <div>
+                            <input type="text" />
+                            <input type="text" />
+                            <input type="text" />
+                        </div>
+                    </div>
+                    <div v-if='format == 2' class='d-flex flex-column justify-content-start align-items-center h-100'>
+                        <div class='w-100 loaded-img-zone-horizontal-img-outer' style='overflow:hidden; height=60%;'>
+                            <img :src="file.img" alt="" class='loaded-img-zone-horizontal-img' width='100%'/>
+                        </div>
+                        <div>
+                            <input type="text" />
+                            <input type="text" />
+                            <input type="text" />
+                        </div> 
                     </div>
                 </div>
             </div>
 
             <!-- Еще ничего не загружено -->
 
-            <div class='drag-and-drop-load_arts shadow d-flex flex-row justify-content-center align-items-center' v-if='selected == null'>
+            <div class='drag-and-drop-load_arts shadow d-flex flex-row justify-content-center align-items-center' v-if='!pre_loaded'>
                 <img class='close d-inline-block' @click='' src="https://img.icons8.com/material-sharp/24/000000/railroad-crossing-sign--v2.png"/>
                 <div class='w-100 h-100'>
                     <div class='p-3 drag-and-drop-zone w-100 h-100' @dragover.prevent @drop.prevent='ondrop' @dragenter.prevent='ondragenter' @dragleave.prevent='ondragleave'>
-                        <img v-if='selected != null' :src="dnd_img" width='300px' alt="" />
                     </div>
                 </div>
             </div>
         </div>`,
         data: function () {
             return {
-                files:[],
-                selected:null,
+                file:{},
+                pre_loaded:false,
+                full_loaded:false,
+                errors: {
+                },
+                format: null
             }
         },
         computed: {
@@ -101,24 +106,43 @@ $(document).ready(function () {
             ondrop(e) {
                 let dt = e.dataTransfer;
                 let files = dt.files;
-                var lenght = this.files.length;
                 for (var i = 0; i < files.length; i++) {
-                    if (this.files.length < 8) {  
-                        this.files.push({
-                            file:files[i],
-                            name:null,
-                            description:null,
-                            tags:[],
-                            img: '/static/img/loading.gif',
-                            valid: false,
-                            tags: []
-                        })
-                        this.img_preview(files[i], lenght+i)
-                    } else {
-                        return;
+                    this.file = {
+                        file:files[i],
+                        name:null,
+                        description:null,
+                        tags:[],
+                        img: '/static/img/loading.gif',
+                        valid: false,
+                        tags: []
                     }
+                    this.pre_loaded = true;
+                    var reader = new FileReader();
+                    reader.onload = () => {
+
+                        this.file.img = reader.result;
+                        var image = new Image();
+                        image.src = reader.result;
+                        image.onload = () => {
+                            this.check_scale(image.width, image.height);
+                        };
+
+                    };
+                    reader.readAsDataURL(files[i])
                 }
-                this.selected = 0
+            },
+            check_scale (width, height) {
+                var scale = height / width;
+                console.log(scale)
+                if(scale > 2 || scale < 0.6) {
+                    return this.errors['scale_error'] = 'Недопустимный масштаб изображения'
+                } else if (scale > 1) {
+                    this.format = 1; // vertical
+                    this.full_loaded = true;
+                } else {
+                    this.format = 2; // horizontal 
+                    this.full_loaded = true;
+                }
             },
             ondragenter() {
                 console.log("test2")
@@ -135,6 +159,7 @@ $(document).ready(function () {
             }
         },
         components: {
+            'search_tags':search
         }
     })
 

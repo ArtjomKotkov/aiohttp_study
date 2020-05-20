@@ -362,6 +362,23 @@ textarea.InputField {
 	z-index: 1000;
 }
 
+.loaded-img-zone-vertical {
+	overflow: hidden;
+	height: 100%
+}
+
+.loaded-img-zone-horizontal-img-outer {
+	height: 50%;
+}
+.loaded-img-zone-vertical-img {
+	display: block;
+}
+
+.loaded-img-zone-horizontal-img {
+	width: 100%;
+	display: block;
+}
+
 .drag-and-drop-zone {
 	border: 3px dashed gray;
 	overflow: hidden;
