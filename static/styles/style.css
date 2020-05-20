@@ -346,3 +346,40 @@ textarea.InputField {
 	border: 1px solid gray;
 	margin: 10px;
 }
+
+.drag-and-drop-load_arts {
+	width: 70%;
+  	height: 60%;
+  	overflow: auto;
+  	margin: auto;
+  	position: absolute;
+  	top: 0; left: 0; bottom: 0; right: 0;
+  	padding: 16px;
+  	border-radius: 15px;
+	background-color: white;
+	min-height: 130px;
+	min-width: 250px;
+	z-index: 1000;
+}
+
+.drag-and-drop-zone {
+	border: 3px dashed gray;
+	overflow: hidden;
+}
+
+.drag-and-drop-zone-img {
+	height: 100%;
+	margin: 0 auto;
+	display: block;
+}
+
+.drag-and-drop-items-text-header {
+	font-weight: bold;
+	font-size: 14px;	
+}
+
+.drag-and-drop-items-hr {
+	margin: 0 0 5px 0;
+	margin-left: -8px;
+	width: calc(100% + 8px);
+}

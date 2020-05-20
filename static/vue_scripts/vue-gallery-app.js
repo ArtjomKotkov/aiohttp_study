@@ -24,6 +24,120 @@ $(document).ready(function () {
         }
     })
 
+    Vue.component('load-arts', {
+        template: `
+        <div class='d-fles flex-column align-items-center'>
+            <div class='drag-and-drop-load_arts shadow d-flex flex-row justify-content-center align-items-center' v-if='selected != null'>
+                <img class='close d-inline-block' @click='' src="https://img.icons8.com/material-sharp/24/000000/railroad-crossing-sign--v2.png"/>
+                <div class='w-50 h-100 p-3'>
+                    <div class='drag-and-drop-zone w-100 h-50' @dragover.prevent @drop.prevent='ondrop' @dragenter.prevent='ondragenter' @dragleave.prevent='ondragleave'>
+                        <img class='img-fluid drag-and-drop-zone-img' v-if='selected != null' :src="dnd_img" alt="" />
+                    </div>
+                    <div class='w-100 h-50 p-3 d-flex flex-column align-items-center justify-content-start' v-if='selected != null'>
+                        <input v-model='files[selected].name' type="text" />
+                        <textarea v-model='files[selected].description'/>
+
+                        
+                        <a href='#' class='default-button'>Загрузить</a>
+                    </div>
+                </div>
+                <div class='p-2 drag-and-drop-items w-50 h-100 d-flex flex-column justify-content-start align-items-left'>
+                    <div v-for='(item, index) in files' class='d-flex flex-row justify-content-start align-items-top m-2 shadow w-100' @click='selected = index'>
+                        <img :src="item.img" width='160px' alt="" />
+                        <div class='ml-2 w-100'>
+                            <div class='drag-and-drop-items-text-header'>Название: {{name_calc(item.name)}}</div>
+                            <div class='drag-and-drop-items-text-header mt-1'>Описание</div>
+                            <hr class='drag-and-drop-items-hr'>
+                            <div><p v-html='desc_calc(item.description)' style='color:gray;'></p></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Еще ничего не загружено -->
+
+            <div class='drag-and-drop-load_arts shadow d-flex flex-row justify-content-center align-items-center' v-if='selected == null'>
+                <img class='close d-inline-block' @click='' src="https://img.icons8.com/material-sharp/24/000000/railroad-crossing-sign--v2.png"/>
+                <div class='w-100 h-100'>
+                    <div class='p-3 drag-and-drop-zone w-100 h-100' @dragover.prevent @drop.prevent='ondrop' @dragenter.prevent='ondragenter' @dragleave.prevent='ondragleave'>
+                        <img v-if='selected != null' :src="dnd_img" width='300px' alt="" />
+                    </div>
+                </div>
+            </div>
+        </div>`,
+        data: function () {
+            return {
+                files:[],
+                selected:null,
+            }
+        },
+        computed: {
+            dnd_img () {
+                if (this.selected != null && this.files.length != 0) {
+                    return this.files[this.selected].img
+                } else {
+                    return '/static/img/loading.gif'
+                }
+            },
+        },
+        watch: {
+
+        },
+        methods: {
+            name_calc(name) {
+                if (name == null) {
+                    return 'Без имени'
+                } else {
+                    return name
+                }
+            },
+            desc_calc(description) {
+                if (description == null) {
+                    return 'Пусто'
+                } else {
+                    return description
+                }
+            },
+            ondrop(e) {
+                let dt = e.dataTransfer;
+                let files = dt.files;
+                var lenght = this.files.length;
+                for (var i = 0; i < files.length; i++) {
+                    if (this.files.length < 8) {  
+                        this.files.push({
+                            file:files[i],
+                            name:null,
+                            description:null,
+                            tags:[],
+                            img: '/static/img/loading.gif',
+                            valid: false,
+                            tags: []
+                        })
+                        this.img_preview(files[i], lenght+i)
+                    } else {
+                        return;
+                    }
+                }
+                this.selected = 0
+            },
+            ondragenter() {
+                console.log("test2")
+            },
+            ondragleave() {
+                console.log("test3")
+            },
+            img_preview(file, i) {
+                var reader = new FileReader();
+                reader.onload = (event) => {
+                    this.files[i].img = reader.result;
+                };
+                reader.readAsDataURL(file)
+            }
+        },
+        components: {
+        }
+    })
+
     Vue.component('control-album', {
         props: ['selected', 'show'],
         template: `
@@ -54,6 +168,14 @@ $(document).ready(function () {
                         </div>
                     </div>
                 </div>
+                <div v-show='show == 2' class='pt-3' v-if='$root.user == $root.owner'>
+                    <div class='d-flex flex-row justify-content-center align-items-center'>
+                        <a href='#' ref='new_album_button' @click.prevent='new_arts_load = true' class='default-button'>
+                            Загрузить арт
+                        </a>
+                    </div>
+                    <load-arts v-if='new_arts_load'></load-arts>
+                </div>
             </div>
         `,
         data: function () {
@@ -64,7 +186,8 @@ $(document).ready(function () {
                     valid: null,
                     errors: {}
                 },
-                styles:global_styles
+                styles:global_styles,
+                new_arts_load: false
             }
         },
         watch: {
