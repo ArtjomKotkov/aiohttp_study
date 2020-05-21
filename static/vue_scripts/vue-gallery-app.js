@@ -1,5 +1,5 @@
 import {arts} from './arts_component.js'
-import {search} from './search_component.js'
+import {load_arts} from './load-arts-component.js'
 
 $(document).ready(function () {
 
@@ -25,143 +25,6 @@ $(document).ready(function () {
         }
     })
 
-    Vue.component('load-arts', {
-        template: `
-        <div class='d-fles flex-column align-items-center'>
-            <div class='drag-and-drop-load_arts shadow p-0' v-if='pre_loaded'>
-                <div v-if='full_loaded == false'>
-                    <img src="/static/img/loading.gif" alt="" />
-                </div>
-                <div v-if='full_loaded == true' class='h-100'>
-                    <div v-if='format == 1' class='d-flex flex-row justify-content-start align-items-center h-100'>
-                        <div class='h-100 loaded-img-zone-vertical'>
-                            <img :src="file.img" alt="" class='loaded-img-zone-vertical-img'/>
-                        </div>
-                        <div>
-                            <input type="text" />
-                            <input type="text" />
-                            <input type="text" />
-                        </div>
-                    </div>
-                    <div v-if='format == 2' class='d-flex flex-column justify-content-start align-items-center h-100'>
-                        <div class='w-100 loaded-img-zone-horizontal-img-outer' style='overflow:hidden; height=60%;'>
-                            <img :src="file.img" alt="" class='loaded-img-zone-horizontal-img' width='100%'/>
-                        </div>
-                        <div>
-                            <input type="text" />
-                            <input type="text" />
-                            <input type="text" />
-                        </div> 
-                    </div>
-                </div>
-            </div>
-
-            <!-- Еще ничего не загружено -->
-
-            <div class='drag-and-drop-load_arts shadow d-flex flex-row justify-content-center align-items-center' v-if='!pre_loaded'>
-                <img class='close d-inline-block' @click='' src="https://img.icons8.com/material-sharp/24/000000/railroad-crossing-sign--v2.png"/>
-                <div class='w-100 h-100'>
-                    <div class='p-3 drag-and-drop-zone w-100 h-100' @dragover.prevent @drop.prevent='ondrop' @dragenter.prevent='ondragenter' @dragleave.prevent='ondragleave'>
-                    </div>
-                </div>
-            </div>
-        </div>`,
-        data: function () {
-            return {
-                file:{},
-                pre_loaded:false,
-                full_loaded:false,
-                errors: {
-                },
-                format: null
-            }
-        },
-        computed: {
-            dnd_img () {
-                if (this.selected != null && this.files.length != 0) {
-                    return this.files[this.selected].img
-                } else {
-                    return '/static/img/loading.gif'
-                }
-            },
-        },
-        watch: {
-
-        },
-        methods: {
-            name_calc(name) {
-                if (name == null) {
-                    return 'Без имени'
-                } else {
-                    return name
-                }
-            },
-            desc_calc(description) {
-                if (description == null) {
-                    return 'Пусто'
-                } else {
-                    return description
-                }
-            },
-            ondrop(e) {
-                let dt = e.dataTransfer;
-                let files = dt.files;
-                for (var i = 0; i < files.length; i++) {
-                    this.file = {
-                        file:files[i],
-                        name:null,
-                        description:null,
-                        tags:[],
-                        img: '/static/img/loading.gif',
-                        valid: false,
-                        tags: []
-                    }
-                    this.pre_loaded = true;
-                    var reader = new FileReader();
-                    reader.onload = () => {
-
-                        this.file.img = reader.result;
-                        var image = new Image();
-                        image.src = reader.result;
-                        image.onload = () => {
-                            this.check_scale(image.width, image.height);
-                        };
-
-                    };
-                    reader.readAsDataURL(files[i])
-                }
-            },
-            check_scale (width, height) {
-                var scale = height / width;
-                console.log(scale)
-                if(scale > 2 || scale < 0.6) {
-                    return this.errors['scale_error'] = 'Недопустимный масштаб изображения'
-                } else if (scale > 1) {
-                    this.format = 1; // vertical
-                    this.full_loaded = true;
-                } else {
-                    this.format = 2; // horizontal 
-                    this.full_loaded = true;
-                }
-            },
-            ondragenter() {
-                console.log("test2")
-            },
-            ondragleave() {
-                console.log("test3")
-            },
-            img_preview(file, i) {
-                var reader = new FileReader();
-                reader.onload = (event) => {
-                    this.files[i].img = reader.result;
-                };
-                reader.readAsDataURL(file)
-            }
-        },
-        components: {
-            'search_tags':search
-        }
-    })
 
     Vue.component('control-album', {
         props: ['selected', 'show'],
@@ -169,7 +32,7 @@ $(document).ready(function () {
             <div class=''>
                 <div class='d-flex flex-row justify-content-center align-items-center'>
                     <a href="#" :class='{button_focus: show == 1}' class='d-block default-button' autofocus @click.prevent='$emit("showChange", 1)'>Альбомы</a>
-                    <a href="#" :class='{button_focus: show == 2}'' class='d-block default-button' @click.prevent='$emit("showChange", 2)'>Все изображения</a>
+                    <a href="#" :class='{button_focus: show == 2}' class='d-block default-button' @click.prevent='$emit("showChange", 2)'>Все изображения</a>
                 </div>
                 <div v-show='show == 1' class='pt-3' v-if='$root.user == $root.owner'>
                     <div class='d-flex flex-row justify-content-center align-items-center'>
@@ -199,7 +62,7 @@ $(document).ready(function () {
                             Загрузить арт
                         </a>
                     </div>
-                    <load-arts v-if='new_arts_load'></load-arts>
+                    <load-arts :owner='$root.owner' v-if='new_arts_load' @close_arts='new_arts_load = false'></load-arts>
                 </div>
             </div>
         `,
@@ -212,7 +75,7 @@ $(document).ready(function () {
                     errors: {}
                 },
                 styles:global_styles,
-                new_arts_load: false
+                new_arts_load: false,
             }
         },
         watch: {
@@ -282,6 +145,9 @@ $(document).ready(function () {
                 }
                 return (!(this.album_field.valid))
             }
+        },
+        components: {
+            'load-arts':load_arts
         }
     });
 

@@ -167,6 +167,7 @@ textarea.InputField {
 }
 
 .input_search_box_item {
+	height: 60%;
 	background-color: #009C65;
 	color: white;
 	border-radius: 5px;
@@ -197,6 +198,7 @@ textarea.InputField {
 }
 
 .input_search_box_input_inner {
+	width: 10px;
 	border: none;
 	outline: none;
 	background-color: rgba(0,0,0,0);
@@ -278,6 +280,7 @@ textarea.InputField {
 	position: absolute;
 	top: 5px;
 	right: 5px;
+	z-index: 999;
 } 
 
 .default-button {
@@ -348,8 +351,8 @@ textarea.InputField {
 }
 
 .drag-and-drop-load_arts {
-	width: 70%;
-  	height: 60%;
+	min-width: 70%;
+  	min-height: 60%;
   	overflow: auto;
   	margin: auto;
   	position: absolute;
@@ -357,8 +360,6 @@ textarea.InputField {
   	padding: 16px;
   	border-radius: 15px;
 	background-color: white;
-	min-height: 130px;
-	min-width: 250px;
 	z-index: 1000;
 }
 
@@ -370,22 +371,18 @@ textarea.InputField {
 .loaded-img-zone-horizontal-img-outer {
 	height: 50%;
 }
-.loaded-img-zone-vertical-img {
-	display: block;
-}
-
-.loaded-img-zone-horizontal-img {
-	width: 100%;
+.loaded-img-zone-img {
 	display: block;
 }
 
 .drag-and-drop-zone {
 	border: 3px dashed gray;
 	overflow: hidden;
+	position: relative;
+	border-radius: 15px;
 }
 
 .drag-and-drop-zone-img {
-	height: 100%;
 	margin: 0 auto;
 	display: block;
 }
@@ -396,7 +393,16 @@ textarea.InputField {
 }
 
 .drag-and-drop-items-hr {
-	margin: 0 0 5px 0;
-	margin-left: -8px;
-	width: calc(100% + 8px);
+	margin: 0 0 15px 0;
+}
+
+.new-art-input {
+	margin-bottom: 10px;
+	width: 100%;
+	border: none;
+	outline: none;
+	background-color: #e6e6e6;
+	border-radius: 5px;
+	min-height: 20px;
+	padding: 5px;
 }

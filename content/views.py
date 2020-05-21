@@ -52,6 +52,7 @@ async def check_art_has_tags(conn, art_id, tags: list, check_exist=True):
     else:
         new_tags = tags
     expr = [f'tag_id = ${tag_index}' for tag_index in range(2, len(new_tags) + 2)]
+    print(f'SELECT * FROM tag_art WHERE art_id = $1 AND ({" OR ".join(expr)})')
     sql_response = await conn.fetch(f'SELECT * FROM tag_art WHERE art_id = $1 AND ({" OR ".join(expr)})',
                                     art_id, *new_tags)
 
@@ -177,6 +178,7 @@ class FilesManager(web.View):
         path = None
         user = self.request.user.name
         tags = None
+        album = None
         datetime_ = datetime.datetime.now()
         dict_response = None
         width = None
@@ -188,13 +190,12 @@ class FilesManager(web.View):
                     return web.HTTPBadRequest(
                         body=json.dumps(dict(message=f'No required fields!')))
                 async with self.request.app['db'].acquire() as conn:
-                    await conn.execute("""INSERT INTO art (name, description, path, date, owner, likes, views, width, height) 
-                                          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);""", name, description, path,
-                                       datetime_,
-                                       self.request.user.name, 0, 0, width, height)
+                    await conn.execute("""INSERT INTO art (name, description, path, date, owner, likes, views, width, height, album_id) 
+                                          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);""", name, description, path,
+                                       datetime_, self.request.user.name, 0, 0, width, height, int(album) if album != 'null' else None)
                     row = await conn.fetchrow('SELECT * FROM art WHERE path = $1;', path)
                     # Add taqs to art.
-                    if tags:
+                    if not(len(tags) == 1 and tags[0] == ''):
                         await add_tags_to_art(conn, row['id'], tags)
                     await conn.close()
                     dict_response = dict(items=[dict(id=row['id'],
@@ -225,14 +226,14 @@ class FilesManager(web.View):
                 with Image.open(MEDIA_ROOT / self.request.user.name / new_name) as image:
                     width = image.width
                     height = image.height
-            if field.name == 'user':
-                name = (await field.read()).decode('utf-8')
+            if field.name == 'album':
+                album = (await field.read()).decode('utf-8')
             if field.name == 'name':
                 name = (await field.read()).decode('utf-8')
             if field.name == 'description':
                 description = (await field.read()).decode('utf-8')
             if field.name == 'tags':
-                tags = list((await field.read()).decode('utf-8'))
+                tags = (await field.read()).decode('utf-8').split(',')
         return web.HTTPCreated(body=json.dumps(dict_response), content_type='application/json')
 
     async def get(self):
