@@ -157,11 +157,17 @@ $(document).ready(function () {
             <div class='albums-header'>
                 <control-album :show='show' :selected='selected' @turnSelect='turnSelecton' @deleteAlbums='delete_albums' @addAlbum='add_album' @showChange='change_show'></control-album>
             </div>
-            <div class='albums-body w-100 d-flex flex-row justify-content-start align-items-top' v-if='show == 1'>
-                <div v-for='album in albums' class='single-album-block'>
-                    <input type="checkbox" v-if='selectable' @change='select_album(album.id)'>
-                    <div class='album_name'>{{album.name}} </div>
-                    <div class='album_body'></div>
+            <div class='albums-body w-100 d-flex flex-row justify-content-center align-items-top' v-if='show == 1'>
+                <div v-for='album in albums' class='change_cursor_pointer single-album-block overflow-hidden' @mouseenter='show_name = album.id' @mouseleave='show_name = null' @click='enter_album(album.id)'>
+                    <input type="checkbox" v-if='selectable' @change='select_album(album.id)' style='z-index:205;'>
+                    <div class='album_name' v-if='show_name == album.id'>{{album.name}}</div>
+                    <div class='album_body' style='position:relative;'>
+                        <div>
+                            <template v-for='(row, index1) in album.arts'>
+                                <img v-for="(item, index2) in row" :style="offset(item.offsetX, item.offsetY)" v-bind:src="/media/ + item.path" class="art-album-preview">
+                            </template>
+                        </div>
+                    </div>
                 </div>
             </div>
             <arts v-if='show == 2' :get_request='"/content/art?user=" + $root.owner'></arts>
@@ -172,6 +178,7 @@ $(document).ready(function () {
                 selectable: false,
                 selected: [],
                 show: 1,
+                show_name: null,
             }
         },
         methods: {
@@ -190,10 +197,6 @@ $(document).ready(function () {
                     }
                     this.albums = new_albums;
                     this.selected = [];
-                }).catch((error) => {
-                  console.error(error);
-                }).finally(() => {
-                  // TODO
                 });
             },
             turnSelecton () {
@@ -213,14 +216,23 @@ $(document).ready(function () {
             },
             add_album (item) {
                 this.albums.push(item);
+            },
+            offset (valueX, valueY) {
+              return `transform: translateX(${ valueX }) translateY(${ valueY })`
+            },
+            enter_album (id) {
+                document.location.href = `/user/${this.$root.owner}/gallery/${id}`;
             }
         },
         mounted() {
-            axios.get(`/content/album?arts=6&user=${this.$root.owner}&fields=id,name,description`, {
+            axios.get(`/content/album?arts=9&user=${this.$root.owner}&fields=id,name,description`, {
             }).then((response) => {
                 this.albums = response.data.items
-            }).catch((error) => {
-              console.error(error);
+                for(var i = 0; i < this.albums.length; i++) {
+                    if (this.albums[i].arts.length > 0) {
+                        this.albums[i].arts = create_array(this.albums[i].arts, 3, 100) 
+                    }
+                }
             });
         },
         components: {
@@ -234,13 +246,40 @@ $(document).ready(function () {
             owner: null,
             user: null,
         },
-        mounted() {
-
-        },
-        methods: {
-
-        },
         delimiters: ['[[', ']]'],
     })
 
 });
+
+
+function create_array (info, arts_in_line, art_width) {
+    var multi_array = [];
+    // Create mulri array
+    for (var index = 0; index < info.length; index = index + arts_in_line) {
+        multi_array.push(info.slice(index, index+arts_in_line));
+    }
+    // Save vertical offsets
+    var top_offset = [];
+    var center_offset = 0;
+    for (var row = 0; row < multi_array.length; row ++) {
+        for (var col = 0; col < multi_array[row].length; col ++) {
+            // scale of art
+            let scale = art_width / multi_array[row][col]['width'];
+            if (row == 0 && col == 0) {
+                center_offset = 90 - multi_array[0][0]['height'] * scale
+            } 
+            // Calculation new height and offsetX/Y values
+            if (row == 0) {
+                top_offset[col] = parseInt(multi_array[row][col]['height'] * scale) + 1 + center_offset;
+                multi_array[row][col]['offsetY'] = 0 + center_offset + 'px';
+                multi_array[row][col]['offsetX'] = (art_width+1) * col -47.5 + 'px';
+            } 
+            else {
+                multi_array[row][col]['offsetY'] = top_offset[col] + 'px';
+                top_offset[col] = top_offset[col] + parseInt(multi_array[row][col]['height']) * scale + 1;
+                multi_array[row][col]['offsetX'] = (art_width+1) * col -47.5 + 'px';
+            }
+        }
+    }
+    return multi_array;
+}

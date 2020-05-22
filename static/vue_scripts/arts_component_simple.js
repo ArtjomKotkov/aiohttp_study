@@ -16,21 +16,14 @@
     });
 
     var arts = Vue.component('arts', {
-    props:['get_request', 'owner', 'user', 'scale_', 'dragable'],
+    props:['get_request', 'owner', 'user', 'scale_', 'action'],
     template: `
     <div class='row px-4 pt-3'>
         <div class="center" :style="{ width : center_div_width+'px', height : window_height+'px'}">
             <template v-for='(row, index1) in info'>
-                <photo :dragable='dragable' v-for="(item, index2) in row" :item="item" :art_width='art_width' :menu='$refs.menu'></photo>
+                <photo :action='action' v-for="(item, index2) in row" :item="item" :art_width='art_width' :menu='$refs.menu'></photo>
             </template>
         </div>
-        <cmenu ref='menu'>
-            <template v-slot:header>
-                Здесь мог быть заголовок меню
-            </template>
-            <cmenu_component :name='"Download"'>Скачать</cmenu_component>
-            <cmenu_component :name='"Share"'>Поделиться</cmenu_component>
-        </cmenu>
     </div>`,
     data: function () {
         return {
@@ -88,7 +81,7 @@
                 }
             }
             return multi_array;
-        },
+        }
     },
     computed: {
         arts_in_line () {0
@@ -103,26 +96,24 @@
         },
         art_width () {
             return this.scale_ != null ? 250*parseFloat(this.scale_) : 250 
-        },
+        }
     },
 
 })
 
 
     Vue.component('photo', {
-        props: ['item', 'art_width', 'menu', 'dragable'],
+        props: ['item', 'art_width', 'menu', 'action'],
         template: `<span class='art' :style="offset(item.offsetX, item.offsetY)" @mouseover="hover = true" @mouseout="hover = false">
-                        <img @dragover.prevent @dragstart.prevent='drag_start' @dragend.prevent='drag_starting = false' :draggable='draggable' v-bind:src="/media/ + item.path" class="img" :width="art_width+'px'" @click='enter_art'>
-                        <template>
+                        <img v-bind:src="/media/ + item.path" class="img" :width="art_width+'px'" @click='enter_art'>
+                        <template v-if='action == null || action == true'>
                             <a href="#" class='art-owner' align="center" v-show='hover'>{{item.owner}}</a>
                             <a href="#" class='art-menu' align="center" v-show='hover' ref='menu_button' @click.prevent='menu.open($event, $refs.menu_button, item)'>...</a>
                         </template>
-                        <div v-if='drag_starting' class='delete_zone'><span style='transform: rotate(-90deg);'>Перетащите изображение для удаления</span></div>
                    </span>`,
         data: function () {
             return {
                 hover: false,
-                drag_starting: false,
             }
         },
         methods: {
@@ -131,16 +122,8 @@
             },
             enter_art () {
                 document.location.href = `/user/${this.item.owner}/art/${this.item.id}`;
-            },
-            drag_start () {
-                this.drag_starting = true;
             }
         },
-        computed: {
-            draggable () {
-                return this.dragable == true ? true : false
-            }
-        }
     })
 
     Vue.component('cmenu', {

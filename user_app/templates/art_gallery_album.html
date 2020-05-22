@@ -20,8 +20,9 @@
 </div>
 
 <div id='app'>
-	<user_init owner='{{owner.name}}' user='{{user.name}}'></user_init>
-	<arts :get_request='"/content/art?user="+[[$root.owner]]+"$albums="+{{album}}' ></arts>
+	<user_init owner='{{owner.name}}' user='{{user.name}}' album='{{album}}'></user_init>
+	<control-album></control-album>
+	<arts :get_request='"/content/art?user="+[[$root.owner]]+"&albums="+{{album}}' ></arts>
 </div>
 
 {% endblock %}

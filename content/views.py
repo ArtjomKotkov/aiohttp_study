@@ -52,7 +52,6 @@ async def check_art_has_tags(conn, art_id, tags: list, check_exist=True):
     else:
         new_tags = tags
     expr = [f'tag_id = ${tag_index}' for tag_index in range(2, len(new_tags) + 2)]
-    print(f'SELECT * FROM tag_art WHERE art_id = $1 AND ({" OR ".join(expr)})')
     sql_response = await conn.fetch(f'SELECT * FROM tag_art WHERE art_id = $1 AND ({" OR ".join(expr)})',
                                     art_id, *new_tags)
 
@@ -719,7 +718,7 @@ class Albums(web.View):
                     record.update(count=album['count']);
                     if arts:
                         arts_response = await conn.fetch(
-                            f"SELECT id, path, name, width, height FROM art WHERE album_id = $1 LIMIT {arts};",
+                            f"SELECT id, path, name, width, height FROM art WHERE album_id = $1 ORDER BY art.date DESC LIMIT {arts};",
                             album['id'])
                         record.update(arts=[dict(id=art['id'],
                                                  path=art['path'],

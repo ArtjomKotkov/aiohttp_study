@@ -3,7 +3,7 @@ import {search} from './search_component.js'
 export {load_arts};
 
 var load_arts = Vue.component('load-arts', {
-	props:['owner'],
+	props:['owner', 'album_prop'],
     template: `
     <div class='d-fles flex-column align-items-center'>
         <div class='drag-and-drop-load_arts shadow p-0 w-75 h-75' v-if='pre_loaded'>
@@ -23,11 +23,13 @@ var load_arts = Vue.component('load-arts', {
                         <p class='mb-0'>Введите описание (необязательное поле)</p>
                         <hr class='drag-and-drop-items-hr'>
                         <textarea v-model='file.description' style='resize=none;' class='d-block new-art-input'></textarea>
-                        <p class='mb-0'>Выберите альбом (необязательное поле)</p>
-                        <hr class='drag-and-drop-items-hr'>
-                        <select v-model='file.album' class='d-block new-art-input'>
-                          <option v-for='album in aviable_albums' :value='album.id'>{{album.name}}</option>
-                        </select>
+                        <template v-if='album_prop == null'>
+                            <p class='mb-0'>Выберите альбом (необязательное поле)</p>
+                            <hr class='drag-and-drop-items-hr'>
+                            <select v-model='file.album' class='d-block new-art-input'>
+                              <option v-for='album in aviable_albums' :value='album.id'>{{album.name}}</option>
+                            </select>
+                        </template>
                         <p class='mb-0'>Выберите теги (необязательное поле)</p>
                         <hr class='drag-and-drop-items-hr'>
                         <search_tags @pushTags='file.tags=$event'>
@@ -95,7 +97,11 @@ var load_arts = Vue.component('load-arts', {
     		var form_data = new FormData();
 
     		form_data.append('name', this.file.name);
-    		form_data.append('album', this.file.album);
+            if (this.album_prop == null) {
+    		  form_data.append('album', this.file.album);
+            } else {
+                form_data.append('album', parseInt(this.album_prop))
+            }
     		form_data.append('description', this.file.description);
     		var tags = [];
     		if (this.file.tags.length > 0) {
@@ -161,10 +167,12 @@ var load_arts = Vue.component('load-arts', {
                 return this.errors['scale_error'] = 'Недопустимный масштаб изображения'
             }
             this.full_loaded = true;
-            axios.get(`/content/album?user=${this.owner}&fields=id,name`, {
-            }).then((response) => {
-              this.aviable_albums = response.data.items
-            });
+            if (this.album_prop == null) {
+                axios.get(`/content/album?user=${this.owner}&fields=id,name`, {
+                }).then((response) => {
+                  this.aviable_albums = response.data.items
+                });
+            }
             return [height, width]
         },
         ondragenter() {
