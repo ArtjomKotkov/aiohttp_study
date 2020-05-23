@@ -53,10 +53,11 @@ class UserInfo:
 
     def __init__(self, model=None, groups=None):
         self.model = model
-        self.name = model['name'] if model else 'Anonymous'
+        self.name = model['name'] if model else None
         self.is_authenticated = True if model else False
         self.groups = {group['name']: group['level'] for group in groups} if groups else None
 
+    @property
     def is_grand(self):
         return self.model['grand'] if self.model else False
 

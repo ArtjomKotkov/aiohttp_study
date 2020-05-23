@@ -6,20 +6,22 @@
 
 {% block content %}
 
-<div class='d-flex flex-row justify-content-between align-items-center'>
+
+<!-- <div class='d-flex flex-row justify-content-between align-items-center'>
 	<div class='width-third'>
 		{{owner.name}}
 	</div>
 	<div class='width-third'>
-		<!-- User photo	 -->
 		<div style='width: 150px; height: 150px; border-radius: 50%; background-color: gray; margin: auto;'></div>
 	</div>
 	<div class='width-third'>
 		Какое нить описание
 	</div>
-</div>
+</div> -->
+
 
 <div id='app' class='pt-3'>
+<user_info :owner='{{owner}}' :user='{{user}}'></user_info>
 <user_init owner='{{owner.name}}' user='{{user.name}}'></user_init>
 <albums></albums>
 

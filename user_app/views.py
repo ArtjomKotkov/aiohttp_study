@@ -34,6 +34,7 @@ async def user_page(request):
 async def user_page(request):
     pass
 
+
 @routers_user.get('/{user_name}/gallery/')
 @aiohttp_jinja2.template('user_app/templates/art_gallery.html')
 async def gallery_page(request):
@@ -41,10 +42,10 @@ async def gallery_page(request):
         sql_row = await conn.fetchrow('SELECT * FROM users WHERE name = $1;', request.match_info['user_name'])
     return {'owner': dict(
         name=sql_row['name'],
-        # photo=sql_row['photo']
-        # subscribers
-        # decription
-        )}
+        photo=sql_row['photo'],
+        description=sql_row['description'],
+    )}
+
 
 @routers_user.get('/{user_name}/gallery/{album_id}')
 @aiohttp_jinja2.template('user_app/templates/art_gallery_album.html')
@@ -56,8 +57,7 @@ async def gallery_album_page(request):
         # photo=sql_row['photo']
         # subscribers
         # decription
-        ), 'album': request.match_info['album_id']}
-
+    ), 'album': request.match_info['album_id']}
 
 
 @routers_user.view('/register/', name='user_register')
@@ -101,13 +101,13 @@ class AuthView(web.View):
                     if check_password(form.data['password'], user['password']):
                         await login(self.request, user, timeout=7200)
                         raise web.HTTPOk(body=json.dumps(dict(message='Успешная авторизация')),
-                                     content_type='application/json')
+                                         content_type='application/json')
                     else:
                         return web.HTTPUnauthorized(body=json.dumps(dict(message='Неправильный пароль')),
-                                         content_type='application/json')
+                                                    content_type='application/json')
                 else:
                     return web.HTTPNotFound(body=json.dumps(dict(message='Такого пользователя не существует')),
-                                     content_type='application/json')
+                                            content_type='application/json')
 
 
 @routers_user.get('/logout/', name='user_logout')
@@ -299,3 +299,134 @@ class RoleMembers(web.View):
                         dict(message=f'User {data["name"]} is '
                                      f'successfuly deleted from role {self.request.match_info["id"]}')),
                     content_type='application/json')
+
+
+@routers_user.view('/subscriber/')
+class SubscribeControl(web.View):
+    async def get(self):
+        """
+        Query str args:
+            - mode (subscriptions, subscribers or check) (subscriptions is standart mode)
+            - limit
+            - offset
+            - user
+            - fields
+            - owner (if mode is 'check', will check that user subscribed on owner)
+        :return: List of subscribers or subscriptions of user (owner).
+        """
+        user = self.request.query.get('user', None)
+        mode = self.request.query.get('mode', 'subscriptions')
+        limit = self.request.query.get('limit', 40)
+        offset = self.request.query.get('offset', 0)
+        owner = self.request.query.get('owner', None)
+        if mode not in ('subscriptions', 'subscribers', 'check'):
+            response = dict(message=f'Mode {mode} doesn\'t exist')
+            return web.HTTPBadRequest(body=json.dumps(response), content_type='application/json')
+        if not user:
+            response = dict(message=f'Query string must contain user')
+            return web.HTTPBadRequest(body=json.dumps(response), content_type='application/json')
+        async with self.request.app['db'].acquire() as conn:
+            user_check = await conn.fetchrow('SELECT name FROM users WHERE name = $1;', user)
+            if not user_check:
+                response = dict(message=f'User with name {user} doesn\'t exist')
+                return web.HTTPNotFound(body=json.dumps(response), content_type='application/json')
+            users = None
+            count = None
+            if mode == 'subscriptions':
+                count = await conn.fetchval(
+                    'SELECT COUNT(*) FROM users INNER JOIN users_subscribers ON users.name = users_subscribers.subscriber_name WHERE users.name = $1',
+                    user)
+                users = await conn.fetch(
+                    f'SELECT users.name, users.photo FROM users INNER JOIN users_subscribers ON users.name = users_subscribers.subscriber_name WHERE users.name = $1 LIMIT {limit} OFFSET {offset};',
+                    user)
+            elif mode == 'subscribers':
+                count = await conn.fetchval(
+                    'SELECT COUNT(*) FROM users INNER JOIN users_subscribers ON users.name = users_subscribers.owner_name WHERE users.name = $1',
+                    user)
+                users = await conn.fetch(
+                    f'SELECT users.name, users.photo FROM users INNER JOIN users_subscribers ON users.name = users_subscribers.owner_name WHERE users.name = $1 LIMIT {limit} OFFSET {offset};',
+                    user)
+            elif mode == 'check':
+                if not owner:
+                    response = dict(message=f'Query string must contain owner if check mode selected')
+                    return web.HTTPBadRequest(body=json.dumps(response), content_type='application/json')
+                owner_check = await conn.fetchrow('SELECT name FROM users WHERE name = $1;', owner)
+                if not owner_check:
+                    response = dict(message=f'Onwer with name {owner} doesn\'t exist')
+                    return web.HTTPNotFound(body=json.dumps(response), content_type='application/json')
+                # Check subscribe
+                check = await conn.fetchval(
+                    "SELECT COUNT(*) FROM users_subscribers WHERE owner_name = $1 AND subscriber_name = $2;", owner,
+                    user)
+                response = dict(status=True if check == 1 else False)
+                return web.HTTPOk(body=json.dumps(response), content_type='application/json')
+            response = dict(items=[dict(name=row['name'], path=row['photo']) for row in users], count=count)
+            return web.HTTPOk(body=json.dumps(response), content_type='application/json')
+
+    async def delete(self):
+        """
+        Unsubscribe user (user) from user (owner).
+        If pass only user or owner, will delete all subscribers or all subscriptions.
+
+        No user or owner existing check.
+
+        Query str args:
+            - user (person which needs to unsubscribe)
+            - owner
+        :return:
+        """
+        user = self.request.query.get('user', None)
+        owner = self.request.query.get('owner', None)
+        if not user and not owner:
+            response = dict(message=f'Request must contain one or more arguments (user, owner)')
+            return web.HTTPBadRequest(body=json.dumps(response), content_type='application/json')
+        async with self.request.app['db'].acquire() as conn:
+            if user and not owner:
+                # Delete all subscriptions
+                await conn.execute('DELETE FROM users_subscribers WHERE subscriber_name = $1;', user)
+            elif not user and owner:
+                # Delete all subscribers
+                await conn.execute('DELETE FROM users_subscribers WHERE owner_name = $1;', owner)
+            else:
+                # Delete subscriber of owner
+                await conn.execute("DELETE FROM users_subscribers WHERE subscriber_name = $1 AND owner_name = $2;",
+                                   user, owner)
+            response = dict(message='Success')
+            return web.HTTPOk(body=json.dumps(response), content_type='application/json')
+
+    async def post(self):
+        """
+        Subscribe user (user) to user (owner).
+
+        Query str args:
+            - user (person which needs to subscribe)
+            - owner
+        :return:
+        """
+        user = self.request.query.get('user', None)
+        owner = self.request.query.get('owner', None)
+        if user == owner:
+            response = dict(message=f'User and owner must be different values')
+            return web.HTTPBadRequest(body=json.dumps(response), content_type='application/json')
+        if not user or not owner:
+            response = dict(message=f'Request must contain arguments (user, owner)')
+            return web.HTTPBadRequest(body=json.dumps(response), content_type='application/json')
+        async with self.request.app['db'].acquire() as conn:
+            # Check if already subscribe
+            check_subscribe = await conn.fetchval(
+                'SELECT COUNT(*) FROM users_subscribers WHERE subscriber_name = $1 AND owner_name = $2;', user, owner)
+            if check_subscribe == 1:
+                response = dict(message=f'{user} already subscriber of {owner}.')
+                return web.HTTPConflict(body=json.dumps(response), content_type='application/json')
+            # User exist check
+            user_check = await conn.fetchrow('SELECT name FROM users WHERE name = $1;', user)
+            owner_check = await conn.fetchrow('SELECT name FROM users WHERE name = $1;', owner)
+            if not user_check or not owner_check:
+                response = dict(
+                    message=f'Someone of users not found user:{user_check.name if user_check else None} '
+                            f'owner:{owner_check.name if owner_check else None}')
+                return web.HTTPNotFound(body=json.dumps(response), content_type='application/json')
+            await conn.execute('INSERT INTO users_subscribers (owner_name, subscriber_name) VALUES ($1, $2)', owner,
+                               user)
+            response = dict(message='Success')
+            return web.HTTPOk(body=json.dumps(response), content_type='application/json')

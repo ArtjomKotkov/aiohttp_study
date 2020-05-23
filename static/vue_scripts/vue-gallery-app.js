@@ -25,6 +25,59 @@ $(document).ready(function () {
         }
     })
 
+    Vue.component('user_info', {
+        props:['user', 'owner'],
+        template: `
+            <div class='d-flex flex-row justify-content-between align-items-center pb-3'>
+                <div class='width-third'>
+                    <div class='d-flex justify-content-end'>
+                        {{description}}
+                    </div>
+                </div>
+                <div class='width-third'>
+                    <div style='width: 150px; height: 150px; border-radius: 50%; margin: auto;' class='overflow-hidden'>
+                        <img :src="user_img" alt="" width='150px' height='150px'/>
+                    </div>
+                </div>
+                <div class='width-third'>
+                    <div class='d-flex justify-content-start'>
+                        Подписчики: {{subscribers}}
+                        <button v-if='!subscribed'></button>
+                    </div>
+                </div>
+            </div>
+        `,
+        data: function () {
+            return {
+                subscribers: 0,
+                subscribed: null
+            }
+        },
+        mounted () {
+            axios.get(`/user/subscriber/?mode=subscribers&user=${this.owner.name}&limit=0`, {
+            }).then((response) => {
+              this.subscribers = response.data.count
+            });
+            if (this.user.name == 'None' || this.user.is_authenticated == null) {
+                return this.subscribed = false
+            } else if (this.user.name == this.owner.name) {
+                return this.subscribed = null
+            } else {
+                axios.get(`/user/subscriber/?mode=check&owner=${this.owner.name}&user=${this.user.name}`, {
+                }).then((response) => {
+                    return this.subscribed = response.data.status
+                });
+            }
+        },
+        computed: {
+            user_img () {
+                return this.user.photo != null ? this.user.photo : '/static/img/no-user-photo.png'
+            },
+            description () {
+                return this.user.description != null ? this.user.description : ''
+            }
+        }
+    })
 
     Vue.component('control-album', {
         props: ['selected', 'show'],
@@ -157,8 +210,8 @@ $(document).ready(function () {
             <div class='albums-header'>
                 <control-album :show='show' :selected='selected' @turnSelect='turnSelecton' @deleteAlbums='delete_albums' @addAlbum='add_album' @showChange='change_show'></control-album>
             </div>
-            <div class='albums-body w-100 d-flex flex-row justify-content-center align-items-top' v-if='show == 1'>
-                <div v-for='album in albums' class='change_cursor_pointer single-album-block overflow-hidden' @mouseenter='show_name = album.id' @mouseleave='show_name = null' @click='enter_album(album.id)'>
+            <div class='albums-body w-100 d-flex flex-row justify-content-center align-items-top p-1' v-if='show == 1'>
+                <div v-for='(album, index) in albums' class='change_cursor_pointer single-album-block overflow-hidden' @mouseenter='show_name = album.id' @mouseleave='show_name = null' @click='enter_album(album.id)'>
                     <input type="checkbox" v-if='selectable' @change='select_album(album.id)' style='z-index:205;'>
                     <div class='album_name' v-if='show_name == album.id'>{{album.name}}</div>
                     <div class='album_body' style='position:relative;'>

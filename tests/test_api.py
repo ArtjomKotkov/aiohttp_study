@@ -10,7 +10,7 @@ from sqlalchemy import create_engine, MetaData
 from user_app.models import users, groups, users_subscribers, groups_users
 from content.models import art, comment, tag, tag_art, albums
 
-from user_app.views import Roles, Role, RoleMembers
+from user_app.views import Roles, Role, RoleMembers, SubscribeControl
 from content.views import FileManager, FilesManager, Tag, Tags, ForeignTag, Comments, Comment, Albums, Album
 
 
@@ -29,6 +29,7 @@ async def app(create_tables, aiohttp_server, aiohttp_client):
     app.router.add_view('/role', Roles)
     app.router.add_view('/role/{id}', Role)
     app.router.add_view('/role/member/{id}', RoleMembers)
+    app.router.add_view('/subscriber', SubscribeControl)
     app.router.add_view('/art', FilesManager)
     app.router.add_view('/art/{id}', FileManager)
     app.router.add_view('/tag', Tags)
@@ -168,6 +169,84 @@ async def test_role_members_delete(app, role_members_test_data):
         await conn.close()
     assert len(check_row) == 0
 
+
+@pytest.fixture
+async def subscribe_test_data(app):
+    test_user = {
+        'name': 'Gold',
+        'password': 'test'
+    }
+    async with app['db'].acquire() as conn:
+        for i in range(6):
+            await conn.execute('INSERT INTO users (name, password) VALUES ($1, $2);', test_user['name'] + str(i),
+                               test_user['password'])
+        await conn.execute('INSERT INTO users_subscribers (owner_name, subscriber_name) VALUES ($1, $2)', 'Gold1',
+                           'Gold2')
+        await conn.execute('INSERT INTO users_subscribers (owner_name, subscriber_name) VALUES ($1, $2)', 'Gold1',
+                           'Gold3')
+        await conn.execute('INSERT INTO users_subscribers (owner_name, subscriber_name) VALUES ($1, $2)', 'Gold3',
+                           'Gold2')
+
+
+async def test_subscribe_get(app, subscribe_test_data):
+    # Test subscribers mode
+    response = await app['client'].get('/subscriber?mode=subscribers&user=Gold1')
+
+    assert response.status == 200
+    data = await response.json()
+    assert len(data['items']) == 2
+    assert data['count'] == 2
+
+    # Test subscriptions mode
+    response = await app['client'].get('/subscriber?mode=subscriptions&user=Gold2')
+
+    assert response.status == 200
+    data = await response.json()
+    assert len(data['items']) == 2
+
+    #Test check mode
+    response = await app['client'].get('/subscriber?mode=check&user=Gold2&owner=Gold1')
+    assert response.status == 200
+    data = await response.json()
+    assert data['status'] == True
+
+
+async def test_subscribe_delete_all_subscriptions(app, subscribe_test_data):
+    response = await app['client'].delete('/subscriber?user=Gold1')
+    assert response.status == 200
+    async with app['db'].acquire() as conn:
+        count = await conn.fetchval('SELECT COUNT(*) FROM users_subscribers WHERE subscriber_name = $1', 'Gold1')
+        assert count == 0
+
+
+async def test_subscribe_delete_all_subscribers(app, subscribe_test_data):
+    response = await app['client'].delete('/subscriber?owner=Gold2')
+    assert response.status == 200
+    async with app['db'].acquire() as conn:
+        count = await conn.fetchval('SELECT COUNT(*) FROM users_subscribers WHERE owner_name = $1', 'Gold2')
+        assert count == 0
+
+
+async def test_subscribe_delete(app, subscribe_test_data):
+    response = await app['client'].delete('/subscriber?owner=Gold1&user=Gold2')
+    assert response.status == 200
+    async with app['db'].acquire() as conn:
+        count = await conn.fetchval('SELECT COUNT(*) FROM users_subscribers WHERE owner_name = $1 AND subscriber_name = $2',
+                                    'Gold1', 'Gold2')
+        assert count == 0
+        count = await conn.fetchval(
+            'SELECT COUNT(*) FROM users_subscribers WHERE owner_name = $1;','Gold1')
+        assert count == 1
+
+async def test_subscribe_post(app, subscribe_test_data):
+    response = await app['client'].post('/subscriber?owner=Gold4&user=Gold2')
+    assert response.status == 200
+    response = await app['client'].post('/subscriber?owner=Gold4&user=Gold2')
+    assert response.status == 409
+    async with app['db'].acquire() as conn:
+        count = await conn.fetchval(
+            'SELECT COUNT(*) FROM users_subscribers WHERE owner_name = $1;','Gold4')
+        assert count == 1
 
 # Arts tests.
 
@@ -453,8 +532,9 @@ async def test_albums_post(app, albums_test_data):
         sql_check = await conn.fetchrow('SELECT * FROM album ORDER BY id DESC LIMIT 1;')
         assert sql_check['id'] == data_['items'][0]['id']
 
+
 async def test_albums_delete(app, albums_test_data):
-    data = dict(ids=[1,2])
+    data = dict(ids=[1, 2])
     response = await app['client'].delete('/album', json=data)
     assert response.status == 200
     async with app['db'].acquire() as conn:
