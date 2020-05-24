@@ -1,6 +1,6 @@
 import {arts} from './arts_component.js'
 import {load_arts} from './load-arts-component.js'
-
+import {user_info} from './userinfo_component.js'
 
 $(document).ready(function () {
     

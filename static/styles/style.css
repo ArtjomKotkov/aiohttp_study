@@ -436,3 +436,124 @@ textarea.InputField {
 	height: 100vh;
 	width: 150px;
 }
+
+.unsubscribe {
+	display: block;
+	border-radius: 15px;
+	background-color: #e6e6e6;
+	-webkit-box-shadow: 0px 10px 30px -13px rgba(0,0,0,0.59);
+	-moz-box-shadow: 0px 10px 30px -13px rgba(0,0,0,0.59);
+	box-shadow: 0px 10px 30px -13px rgba(0,0,0,0.59);
+	transition-duration: 0.2s;
+	padding: 5px 10px;
+	color: #999999;
+	margin:0 ;
+}
+
+.unsubscribe:hover {
+	background-color: #7800eb;
+	text-decoration: none;
+	color: white;
+}
+
+.subscribe {
+	display: block;
+	border-radius: 15px;
+	background-color: #009C65;
+	-webkit-box-shadow: 0px 10px 30px -13px rgba(0,0,0,0.59);
+	-moz-box-shadow: 0px 10px 30px -13px rgba(0,0,0,0.59);
+	box-shadow: 0px 10px 30px -13px rgba(0,0,0,0.59);
+	transition-duration: 0.2s;
+	padding: 5px 10px;
+	color: white;
+	margin: 0;
+}
+
+.subscribe:hover {
+	background-color: #00a6c7;
+	text-decoration: none;
+	color: white;
+}
+
+@media screen and (max-width: 900px){
+
+	#user_options {
+		position: absolute;
+		margin: auto;
+		width: 100%;
+		height: calc(100% - 80px)
+		background-color: white;
+		overflow: auto;
+	  	margin-top: 80px;
+	  	position: absolute;
+	  	top: 0; left: 0; bottom: 0; right: 0;
+	  	font-size: 0.7em !important;
+	}
+
+	.option_menu_item {
+		padding: 6px 6px;
+	}
+
+	.option_menu_item_selected {
+		background-color: white;
+	}
+
+	#user_options_left_menu {
+		background-color: #e6e6e6;
+	}
+
+	#user_options_left_menu_img {
+		width: 60px;
+		height: 60px;
+		margin: auto;
+		display: block;
+		padding: 10px;
+	}
+
+	.user_options_left_menu_description {
+		display: none;
+	}
+
+}
+
+@media screen and (min-width: 900px){
+
+	#user_options {
+		position: absolute;
+		margin: auto;
+		width: 60%;
+		height: 70%;
+		background-color: white;
+		border-radius: 15px;
+		overflow: auto;
+	  	margin: auto;
+	  	position: absolute;
+	  	top: 0; left: 0; bottom: 0; right: 0;
+	}
+
+	#user_options_left_menu_img {
+		width: 150px;
+		height: 150px;
+		margin: 10px;
+	}
+
+	.option_menu_item {
+		padding: 16px 16px;
+	}
+
+	.option_menu_item_selected {
+		background-color: white;
+	}
+
+	#vertical-line {
+		height: 100%;
+		background-color: #E5E5E5;
+		width: 1px;
+	}
+
+	#user_options_left_menu {
+		background-color: #e6e6e6;
+	}
+
+}
+

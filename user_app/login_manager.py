@@ -14,7 +14,7 @@ class Decorator:
     def cl_login_required(func):
         async def wrap(self, *args, **kwargs):
             if not self.request.user.is_authenticated:
-                raise HTTPUnauthorized
+                return HTTPUnauthorized()
             else:
                 await func(self, *args, **kwargs)
 
@@ -24,7 +24,7 @@ class Decorator:
     def method_login_required(func):
         async def wrap(request, *args, **kwargs):
             if not request.user.is_authenticated:
-                raise HTTPUnauthorized
+                return HTTPUnauthorized()
             else:
                 await func(request, *args, **kwargs)
 

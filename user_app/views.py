@@ -8,6 +8,7 @@ from aiohttp_session import get_session
 from .login_manager import hash_password, check_password, login, logout
 from .forms import *
 from chat.forms import Chat
+from .login_manager import Decorator
 
 logger_console = logging.getLogger('console_logger')
 
@@ -15,6 +16,12 @@ routers_user = web.RouteTableDef()
 
 
 # Main page views
+
+@routers_user.get('/options/')
+@aiohttp_jinja2.template('user_app/templates/user_options.html')
+@Decorator.method_login_required
+async def gallery_page(request):
+    pass
 
 @routers_user.get('/{user_name}')
 async def user_page(request):

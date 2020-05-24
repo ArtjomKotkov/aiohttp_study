@@ -120,11 +120,11 @@ var load_arts = Vue.component('load-arts', {
 		        'Content-Type': 'multipart/form-data'
     		  }
     		}).then((response) => {
-    		  // TODO
+    		  document.location.reload(true);
     		}).catch((error) => {
     		  console.error(error);
     		}).finally(() => {
-    		  // TODO
+    		  console.log('test')
     		});
   
     	},

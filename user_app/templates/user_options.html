@@ -1,0 +1,13 @@
+{% extends 'templates/main.html' %}
+
+{% block add_to_head %}
+<script type='module' src="{{ url('static', filename='vue_scripts/vue-user-options-app.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+
+<div id='app' class='pt-3'>
+	<user_options :user='{{user}}'></user_options>
+</div>
+
+{% endblock %}
