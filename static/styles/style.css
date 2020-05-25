@@ -557,3 +557,35 @@ textarea.InputField {
 
 }
 
+.user_option_change_item {
+	margin-top: 16px;
+	background-color: #E6E6E6;
+	margin-left: -16px;
+	width: calc(100% + 32px);
+	padding: 16px;
+	box-shadow: inset 0px 0px 10px rgba(0,0,0,0.15);
+}
+
+.user_option_change_item_text {
+	height: 30px;
+	margin: 0.25em 0;
+	display: block;
+}
+
+/*Стили для инвалидный и валидных полей форм*/
+
+.field-invalid {
+	padding-left: 5px;
+	border: 1px solid rgba(255,0,0,0.5);
+	-webkit-box-shadow: 0px 0px 4px 0px rgba(255,0,0,0.5);
+	-moz-box-shadow: 0px 0px 4px 0px rgba(255,0,0,0.5);
+	box-shadow: 0px 0px 4px 0px rgba(255,0,0,0.5);
+}
+
+.field-valid {
+	padding-left: 5px;
+	border: 1px solid rgba(0,204,54,1);
+	-webkit-box-shadow: 0px 0px 4px 0px rgba(0,204,54,1);
+	-moz-box-shadow: 0px 0px 4px 0px rgba(0,204,54,1);
+	box-shadow: 0px 0px 4px 0px rgba(0,204,54,1);
+}
