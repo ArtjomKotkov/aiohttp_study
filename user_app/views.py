@@ -1,10 +1,13 @@
 import logging
 import json
+import os
+import datetime
 
 from aiohttp import web
 import aiohttp_jinja2
 from aiohttp_session import get_session
 
+from settings import MEDIA_ROOT
 from .login_manager import hash_password, check_password, login, logout
 from .forms import *
 from chat.forms import Chat
@@ -22,6 +25,7 @@ routers_user = web.RouteTableDef()
 @Decorator.method_login_required
 async def gallery_page(request):
     pass
+
 
 @routers_user.get('/{user_name}')
 async def user_page(request):
@@ -136,7 +140,163 @@ class UserManager(web.View):
                                   content_type='application/json')
 
 
-@routers_user.view('/role')
+def dict_by_fields(data, fields=None):
+    return [{field: row[field] for field in fields} if fields else {key: value for key, value in row.items()} for row in
+            data]
+
+
+def record_to_dict(record):
+    """ Convert record instance to dict"""
+    if not isinstance(record, list):
+        return [{key: value for key, value in record.items()}]
+    else:
+        return [{key: value for key, value in row.items()} for row in record]
+
+
+@routers_user.view('/user_api/')
+class Users(web.View):
+
+    async def get(self):
+        """
+        Method allow to get information about users, by their ids.
+
+        Query string params:
+            - names: list of names, of users which need to return, if names param didn't pass, return all users;
+            - limit;
+            - offset;
+            - fields, if not pass return only name, and photo for every user;
+        :return: json with items fields, which contain list of users dictionaries.
+        """
+        limit = self.request.query.get('limit', 40)
+        offset = self.request.query.get('offset', 0)
+        names = self.request.query.get('names', None)
+        fields = self.request.query.get('fields', 'name, photo')
+        async with self.request.app['db'].acquire() as conn:
+            users_row_data = None
+            if names:
+                names = names.split(',')
+                names_indexes = ", ".join([f'${i}' for i in range(1, len(names) + 1)])
+                users_row_data = await conn.fetch(
+                    f'SELECT {fields} FROM users WHERE name IN ({names_indexes}) LIMIT {limit} OFFSET {offset};',
+                    *names)
+            else:
+                users_row_data = await conn.fetch(f'SELECT {fields} FROM users LIMIT {limit} OFFSET {offset};')
+        response = dict(items=dict_by_fields(data=users_row_data))
+        return web.HTTPOk(body=json.dumps(response), content_type='application/json')
+
+    async def post(self):
+        reader = await self.request.multipart()
+
+        async with self.request.app['db'].acquire() as conn:
+            data = {}
+            while True:
+                field = await reader.next()
+                print(field)
+                # Read common fields
+                if not field:
+                    # If not fields were read
+
+                    if not data:
+                        response = dict(message='No data in post request.')
+                        return web.HTTPBadRequest(body=json.dumps(response), content_type='application/json')
+                    # Check to user existing
+                    user_name = data['name']
+                    user = await conn.fetchrow('SELECT name FROM user WHERE name = $1;', user_name)
+                    if user:
+                        response = dict(message=f'User {user_name} already exist.')
+                        return web.HTTPConflict(body=json.dumps(response), content_type='application/json')
+                    if 'file' in data:
+                        # If files was loaded.
+                        source_name, source_extension = os.path.splitext(field.filename)
+
+                        # Photo path for saving in model.
+                        path = os.path.join(user_name, 'user_photo' + source_extension)
+                        try:
+                            os.mkdir(MEDIA_ROOT / user_name)
+                        except FileExistsError:
+                            pass
+
+                        # Save photo.
+                        with open(MEDIA_ROOT / user_name / 'user_photo' + source_extension, 'wb') as file:
+                            file.write(data['photo']['file'])
+                            data['photo'] = path
+
+                    fields = ', '.join([field for field in data.keys()])
+                    fields_indexes = ', '.join([f'${i}' for i in range(1, len(data) + 1)])
+                    await conn.execute(f'INSERT INTO users ({fields}) VALUES ({fields_indexes});',
+                                       *data.values())
+
+                    # Return new or updated user
+                    user = await conn.fetchrow('SELECT name, photo FROM users WHERE name = $1;', user_name)
+                    response = dict(items=record_to_dict(user))
+                    return web.HTTPCreated(body=json.dumps(response), content_type='application/json')
+
+                if field.name in ['name', 'password', 'email', 'description', 'grand']:
+                    data.update = {
+                        field.name: (await field.read()).decode('utf-8')
+                    }
+                # Read file field
+                if field.name == 'photo':
+                    while True:
+                        chunk = await field.read_chunk()
+                        if not chunk:
+                            break
+                        # Collect bytes
+                        data['photo']['file'] += chunk
+                    data['photo']['filename'] = field.filename
+                # If reading ends
+
+
+
+    async def delete(self):
+        """
+        Method delete users, which names were passed to query str as (names=...).
+        Query string params:
+            - names: list of users names.
+        :return:
+        """
+        names = self.request.query.get('names', None)
+        if not names:
+            response = dict(message=f'"names" param isn\'t passed.')
+            return web.HTTPBadRequest(body=json.dumps(response), content_type='application/json')
+        async with self.request.app['db'].acquire() as conn:
+            names = names.split(',')
+            names_indexes = [f'${i}' for i in range(1, len(names) + 1)]
+            await conn.execute(f"DELETE FROM users WHERE name IN ({','.join(names_indexes)});", *names)
+            response = dict(message=f'Users ({", ".join(names)}) successfuly deleted.')
+            return web.HTTPOk(body=json.dumps(response), content_type='application/json')
+
+
+@routers_user.view('/user_api/{name}')
+class User(web.View):
+
+    async def get(self):
+        """
+        Query string params:
+            - fields:
+                - all common fields default: (name, photo);
+            - subsribers [count]
+            - subscriptions [count]
+        :return: information about user which name is {name}
+        """
+        fields = self.request.query.get('fields', 'name, photo')
+        subsribers = self.request.query.get('subscribers', None)
+        subscriptions = self.request.query.get('subscriptions', None)
+        mode = self.request.query.get('mode', 'common')
+        async with self.request.app['db'].acquire() as conn:
+            if mode == 'common':
+                subsribers_count = f", (SELECT COUNT(*) FROM users_subscribers WHERE owner_name = '{self.request.match_info['name']}') as subscribers" if subsribers == 'True' else ''
+                subscriptions_count = f", (SELECT COUNT(*) FROM users_subscribers WHERE subscriber_name = '{self.request.match_info['name']}') as subscriptions" if subscriptions == 'True' else ''
+                user = await conn.fetchrow(f"SELECT {fields}{subsribers_count}{subscriptions_count} FROM users WHERE name = $1;",
+                                           self.request.match_info['name'])
+                if not user:
+                    response = dict(message=f'User {self.request.match_info["name"]} doesn\'t exist.')
+                    return web.HTTPNotFound(body=json.dumps(response), content_type='application/json')
+                response = dict(items=record_to_dict(user))
+                return web.HTTPOk(body=json.dumps(response), content_type='application/json')
+
+
+@routers_user.view('/role/')
 class Roles(web.View):
 
     async def get(self):

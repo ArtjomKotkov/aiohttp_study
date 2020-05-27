@@ -10,7 +10,7 @@ from sqlalchemy import create_engine, MetaData
 from user_app.models import users, groups, users_subscribers, groups_users
 from content.models import art, comment, tag, tag_art, albums
 
-from user_app.views import Roles, Role, RoleMembers, SubscribeControl
+from user_app.views import Roles, Role, RoleMembers, SubscribeControl, Users, User
 from content.views import FileManager, FilesManager, Tag, Tags, ForeignTag, Comments, Comment, Albums, Album
 
 
@@ -26,6 +26,8 @@ def create_tables():
 @pytest.yield_fixture
 async def app(create_tables, aiohttp_server, aiohttp_client):
     app = web.Application()
+    app.router.add_view('/users', Users)
+    app.router.add_view('/users/{name}', User)
     app.router.add_view('/role', Roles)
     app.router.add_view('/role/{id}', Role)
     app.router.add_view('/role/member/{id}', RoleMembers)
@@ -247,6 +249,52 @@ async def test_subscribe_post(app, subscribe_test_data):
         count = await conn.fetchval(
             'SELECT COUNT(*) FROM users_subscribers WHERE owner_name = $1;','Gold4')
         assert count == 1
+
+async def test_users_get(app, subscribe_test_data):
+    response = await app['client'].get('/users?names=Gold1,Gold2,Gold3,Gold4')
+    assert response.status == 200
+    data = await response.json()
+    assert len(data['items']) == 4
+
+    response = await app['client'].get('/users?names=NotExist')
+    assert response.status == 200
+    data = await response.json()
+    assert len(data['items']) == 0
+
+    response = await app['client'].get('/users')
+    assert response.status == 200
+    data = await response.json()
+    assert len(data['items']) == 6
+
+# async def test_users_post(app):
+#     with open('user_photo.jpg', 'rb') as file:
+#         user_data = dict(
+#             name='Test1',
+#             password='Password',
+#             grand=True,
+#             description='Blank',
+#             email='test@test.ru',
+#             file=file
+#         )
+#         with MultipartWriter() as mpwriter:
+#             mpwriter.append_form([(key, value) for key, value in user_data.items()])
+#             response = await app['client'].post('/users', data=mpwriter)
+#             assert response.status == 201
+
+async def test_users_post(app, subscribe_test_data):
+    response = await app['client'].delete('/users?names=Gold1,Gold2')
+    assert response.status == 200
+    async with app['db'].acquire() as conn:
+        count = await conn.fetchval(
+            'SELECT COUNT(*) FROM users;')
+        assert count == 4
+
+async def test_user_get(app, subscribe_test_data):
+    response = await app['client'].get('/users/Gold1?subscribers=True&subscriptions=True')
+    assert response.status == 200
+    data = await response.json()
+    assert data['items'][0]['subscribers'] == 2
+    assert data['items'][0]['subscriptions'] == 0
 
 # Arts tests.
 

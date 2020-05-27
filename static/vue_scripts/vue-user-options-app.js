@@ -221,8 +221,8 @@ $(document).ready(function () {
 		    	<div class=''>
 		    		<img :src="user_img" alt="" id='user_options_left_menu_img'/>
 		    	</div>
-		    	<div class='user_options_left_menu_description'>
-		    		<p text-align='center'>{{description}}</p>
+		    	<div class='user_options_left_menu_description px-2 pb-3 text-center'>
+		    		{{description}}
 		    	</div>
 		    	<div class='d-flex flex-column justify-content-start align-items-left'>
 					<div v-bind:class="{ option_menu_item_selected: selected == 1 }" class='change_cursor_pointer option_menu_item' @click.prevent='selected = 1'>Общее</div>
