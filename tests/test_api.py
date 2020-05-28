@@ -1,10 +1,10 @@
-import json
-import io
+
 import datetime
 
 import pytest
 import asyncpg
-from aiohttp import web, MultipartWriter
+import aiohttp
+from aiohttp import web
 from sqlalchemy import create_engine, MetaData
 
 from user_app.models import users, groups, users_subscribers, groups_users
@@ -266,22 +266,27 @@ async def test_users_get(app, subscribe_test_data):
     data = await response.json()
     assert len(data['items']) == 6
 
-# async def test_users_post(app):
-#     with open('user_photo.jpg', 'rb') as file:
-#         user_data = dict(
-#             name='Test1',
-#             password='Password',
-#             grand=True,
-#             description='Blank',
-#             email='test@test.ru',
-#             file=file
-#         )
-#         with MultipartWriter() as mpwriter:
-#             mpwriter.append_form([(key, value) for key, value in user_data.items()])
-#             response = await app['client'].post('/users', data=mpwriter)
-#             assert response.status == 201
+async def test_users_post(app):
+    form = aiohttp.FormData()
+    user_data = dict(
+        name='Test1',
+        password='Password',
+        description='Blank',
+        email='test@test.ru',
+        grand='True'
+    )
+    for key, value in user_data.items():
+        form.add_field(key, value)
+    form.add_field('photo', open('user_photo.jpg', 'rb'))
+    response = await app['client'].post('/users', data=form)
+    assert response.status == 201
+    async with app['db'].acquire() as conn:
+        user_check = await conn.fetchrow('SELECT * FROM users WHERE name = $1;', user_data['name'])
+        assert user_check['name'] == user_data['name']
+        assert user_check['grand'] == True
+        assert user_check['photo'] == 'Test1/user_photo.jpg'
 
-async def test_users_post(app, subscribe_test_data):
+async def test_users_delete(app, subscribe_test_data):
     response = await app['client'].delete('/users?names=Gold1,Gold2')
     assert response.status == 200
     async with app['db'].acquire() as conn:
@@ -295,6 +300,68 @@ async def test_user_get(app, subscribe_test_data):
     data = await response.json()
     assert data['items'][0]['subscribers'] == 2
     assert data['items'][0]['subscriptions'] == 0
+
+async def test_user_post_user_already_exist(app, subscribe_test_data):
+    # Check if user user with new name already exist.
+    form = aiohttp.FormData()
+    user_data = dict(
+        name='Gold2',
+    )
+    for key, value in user_data.items():
+        form.add_field(key, value)
+    form.add_field('photo', open('user_photo.jpg', 'rb'))
+    response = await app['client'].post('/users/Gold1', data=form)
+    assert response.status == 409
+
+async def test_user_post(app, subscribe_test_data):
+    # Create user with folder
+    form = aiohttp.FormData()
+    user_data = dict(
+        name='Test1',
+        password='Password',
+        description='Blank',
+        email='test@test.ru',
+        grand='True'
+    )
+    for key, value in user_data.items():
+        form.add_field(key, value)
+    form.add_field('photo', open('user_photo.jpg', 'rb'))
+
+    response = await app['client'].post('/users', data=form)
+    assert response.status == 201
+    async with app['db'].acquire() as conn:
+        user_check = await conn.fetchrow('SELECT * FROM users WHERE name = $1;', user_data['name'])
+        assert user_check['name'] == user_data['name']
+        assert user_check['grand'] == True
+        assert user_check['photo'] == 'Test1/user_photo.jpg'
+
+    # Change user data
+    form = aiohttp.FormData()
+    user_data = dict(
+        name='New_name',
+        password='Password2',
+        description='Blank3',
+        email='test@test2.ru',
+        grand='False'
+    )
+    for key, value in user_data.items():
+        form.add_field(key, value)
+    form.add_field('photo', open('user_photo.jpg', 'rb'))
+
+    response = await app['client'].post('/users/Test1', data=form)
+    assert response.status == 200
+    async with app['db'].acquire() as conn:
+
+        user_check_2 = await conn.fetchrow("SELECT * FROM users WHERE name = 'Test1';")
+        assert not user_check_2
+
+        user_check = await conn.fetchrow('SELECT * FROM users WHERE name = $1;', user_data['name'])
+        assert user_check['name'] == user_data['name']
+        assert user_check['grand'] == False
+        assert user_check['photo'] == 'New_name/user_photo.jpg'
+
+
+
 
 # Arts tests.
 

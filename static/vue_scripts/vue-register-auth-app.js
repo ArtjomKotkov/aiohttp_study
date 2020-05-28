@@ -9,22 +9,58 @@ $(document).ready(function () {
     	}
     }
 
+	Vue.component('errors-block', {
+		props:['errors'],
+		template: `
+			<div>
+				<ul>
+					<li v-for='error in Object.values(errors)'>{{error}}</li>
+				</ul>
+			</div>
+		`,
+		data: function () {
+            return {
+
+            }
+        },
+        watch: {
+		  errors: {
+		    // the callback will be called immediately after the start of the observation
+		    immediate: true, 
+		    handler (val, oldVal) {
+		      this.parseData();
+		      console.log(`${val} ${oldVal}`)
+		    },
+		    deep:true
+		  }
+		},
+        computed: {
+        	// errors_list () {
+        	// 	console.log(this.errors.length > 0 ? Object.values(this.errors) : [])
+        	// 	return this.errors.length > 0 ? Object.values(this.errors) : []
+        	// }
+        }
+	})
+
 	custom_form = Vue.component('register-form', {
 		props: ['url'],
 		template: `
-			<form :action="url" class='d-flex flex-column form-register' method='POST'>
-				<input v-model='name_field.data' :style='style(name_field.valid)' name="name" type="text" placeholder='Nickname input'/>
+			<form :action="url" class='d-flex flex-column form-register align-items-center' method='POST'>
+				<img v-if='image_field.data != null' :src="image_field.data" alt="" />
+				<input v-model='name_field.data' :class='{ "field-valid" : name_field.valid, "field-invalid" : invalid(name_field.valid)}' name="name" type="text" placeholder='Nickname input'/>
 				<ul v-if='Object.keys(name_field.errors).length != 0'>
 					<li>{{name_field.errors.user_exist}}</li>
 				</ul>
-				<input v-model='password_field.data' :style='style(password_field.valid)' name='password' type="text" placeholder='Password'/>
+				<input v-model='password_field.data' :class='{ "field-valid" : password_field.valid, "field-invalid" : invalid(password_field.valid)}' name='password' type="text" placeholder='Password'/>
 				<ul v-if='Object.keys(password_field.errors).length != 0'>
 					<li>{{password_field.errors._lenght}}</li>
 				</ul>
-				<input v-model='password2_field.data' name='password2' :style='style(password2_field.valid)' type="text" placeholder='Confirm password'/>
+				<input v-model='password2_field.data' name='password2' :class='{ "field-valid" : password2_field.valid, "field-invalid" : invalid(password2_field.valid)}' type="text" placeholder='Confirm password'/>
 				<ul v-if='Object.keys(password2_field.errors).length != 0'>
 					<li>{{password2_field.errors.equal}}</li>
 				</ul>
+				<input type="file" @change='photoValidation'/>
+				<errors-block :errors='image_field.errors'></errors-block>
 				<input :disabled='!form_valid' type="submit" />
 			</form>
 		`,
@@ -44,6 +80,10 @@ $(document).ready(function () {
                 password2_field: {
                 	data:null,
                 	valid: null,
+                	errors: {}
+                },
+                image_field: {
+                	data:null,
                 	errors: {}
                 },
                 styles: global_styles
@@ -94,6 +134,22 @@ $(document).ready(function () {
 			}
 		},
 		methods: {
+			photoValidation (event) {
+				var reader = new FileReader();
+				reader.onload = () => {
+					var image = new Image();
+					image.src = reader.result;
+                    image.onload = () => {
+                        if(image.width != image.height) {
+                        	return this.image_field.errors['invalid_scale'] = 'Соотношение сторон загружаемого изображения должно быть 1:1.'
+                        }
+                        if(image.width > 512 || image.height > 512) {
+                        	return this.image_field.errors['invalid_dimensions'] = 'Максимальные размеры изображения 512х512.'
+                        }
+                    };
+				};
+				reader.readAsDataURL(event.target.files[0])
+			},
 			check_name(name) {
 				if (name == '') {
 					delete this.name_field.errors.user_exist
@@ -131,7 +187,10 @@ $(document).ready(function () {
     				this.password2_field.valid = true;
     				delete this.password2_field.errors.equal
     			}
-			}
+			},
+			invalid (field_validation) {
+				return field_validation == false ? true : false
+			},
 		}
 	})
 

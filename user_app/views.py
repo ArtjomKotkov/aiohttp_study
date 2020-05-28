@@ -186,12 +186,10 @@ class Users(web.View):
 
     async def post(self):
         reader = await self.request.multipart()
-
         async with self.request.app['db'].acquire() as conn:
             data = {}
             while True:
                 field = await reader.next()
-                print(field)
                 # Read common fields
                 if not field:
                     # If not fields were read
@@ -201,23 +199,24 @@ class Users(web.View):
                         return web.HTTPBadRequest(body=json.dumps(response), content_type='application/json')
                     # Check to user existing
                     user_name = data['name']
-                    user = await conn.fetchrow('SELECT name FROM user WHERE name = $1;', user_name)
+                    user = await conn.fetchrow('SELECT name FROM users WHERE name = $1;', user_name)
                     if user:
                         response = dict(message=f'User {user_name} already exist.')
                         return web.HTTPConflict(body=json.dumps(response), content_type='application/json')
-                    if 'file' in data:
+                    if 'photo' in data:
                         # If files was loaded.
-                        source_name, source_extension = os.path.splitext(field.filename)
-
+                        source_name, source_extension = os.path.splitext(data['photo']['filename'])
+                        new_file_name = 'user_photo' + source_extension
                         # Photo path for saving in model.
-                        path = os.path.join(user_name, 'user_photo' + source_extension)
+                        path = os.path.join(user_name, new_file_name)
+
                         try:
                             os.mkdir(MEDIA_ROOT / user_name)
                         except FileExistsError:
                             pass
 
                         # Save photo.
-                        with open(MEDIA_ROOT / user_name / 'user_photo' + source_extension, 'wb') as file:
+                        with open(MEDIA_ROOT / user_name / new_file_name, 'wb') as file:
                             file.write(data['photo']['file'])
                             data['photo'] = path
 
@@ -230,13 +229,21 @@ class Users(web.View):
                     user = await conn.fetchrow('SELECT name, photo FROM users WHERE name = $1;', user_name)
                     response = dict(items=record_to_dict(user))
                     return web.HTTPCreated(body=json.dumps(response), content_type='application/json')
-
-                if field.name in ['name', 'password', 'email', 'description', 'grand']:
-                    data.update = {
+                if field.name == 'grand':
+                    data.update({
+                        field.name: True if (await field.read()).decode('utf-8').lower() == 'true' else False
+                    })
+                if field.name == 'password':
+                    data.update({
+                        field.name: hash_password((await field.read()).decode('utf-8'))
+                    })
+                if field.name in ['name', 'email', 'description']:
+                    data.update({
                         field.name: (await field.read()).decode('utf-8')
-                    }
+                    })
                 # Read file field
                 if field.name == 'photo':
+                    data['photo'] = dict(file=b'', filename=None)
                     while True:
                         chunk = await field.read_chunk()
                         if not chunk:
@@ -244,9 +251,6 @@ class Users(web.View):
                         # Collect bytes
                         data['photo']['file'] += chunk
                     data['photo']['filename'] = field.filename
-                # If reading ends
-
-
 
     async def delete(self):
         """
@@ -287,13 +291,100 @@ class User(web.View):
             if mode == 'common':
                 subsribers_count = f", (SELECT COUNT(*) FROM users_subscribers WHERE owner_name = '{self.request.match_info['name']}') as subscribers" if subsribers == 'True' else ''
                 subscriptions_count = f", (SELECT COUNT(*) FROM users_subscribers WHERE subscriber_name = '{self.request.match_info['name']}') as subscriptions" if subscriptions == 'True' else ''
-                user = await conn.fetchrow(f"SELECT {fields}{subsribers_count}{subscriptions_count} FROM users WHERE name = $1;",
-                                           self.request.match_info['name'])
+                user = await conn.fetchrow(
+                    f"SELECT {fields}{subsribers_count}{subscriptions_count} FROM users WHERE name = $1;",
+                    self.request.match_info['name'])
                 if not user:
                     response = dict(message=f'User {self.request.match_info["name"]} doesn\'t exist.')
                     return web.HTTPNotFound(body=json.dumps(response), content_type='application/json')
                 response = dict(items=record_to_dict(user))
                 return web.HTTPOk(body=json.dumps(response), content_type='application/json')
+
+    async def post(self):
+        """
+        Update user instance.
+        :return:
+        """
+        reader = await self.request.multipart()
+        async with self.request.app['db'].acquire() as conn:
+            data = {}
+            while True:
+                field = await reader.next()
+                # Read common fields
+                if not field:
+                    # If not fields were read
+
+                    if not data:
+                        response = dict(message='No data in post request.')
+                        return web.HTTPBadRequest(body=json.dumps(response), content_type='application/json')
+                    # Check to user existing
+                    user = await conn.fetchrow('SELECT name FROM users WHERE name = $1;',
+                                               self.request.match_info['name'])
+                    if not user:
+                        response = dict(message=f'User {self.request.match_info["name"]} doesn\'t exist.')
+                        return web.HTTPNotFound(body=json.dumps(response), content_type='application/json')
+
+                    user_name = data['name'] if 'name' in data else self.request.match_info['name']
+                    # Check if user with user_name existing, if user_name != match_info['name'],
+                    if user_name != self.request.match_info['name']:
+                        user = await conn.fetchrow('SELECT name FROM users WHERE name = $1;',
+                                                   user_name)
+                        if user:
+                            response = dict(message=f'User {self.request.match_info["name"]} already exist.')
+                            return web.HTTPConflict(body=json.dumps(response), content_type='application/json')
+
+                    if 'photo' in data:
+                        # If files was loaded.
+                        source_name, source_extension = os.path.splitext(data['photo']['filename'])
+                        new_file_name = 'user_photo' + source_extension
+                        # Photo path for saving in model.
+                        path = os.path.join(user_name, new_file_name)
+                        try:
+                            if self.request.match_info['name'] != user_name:
+                                os.rename(MEDIA_ROOT / self.request.match_info['name'], MEDIA_ROOT / user_name)
+                        except FileExistsError:
+                            os.mkdir(MEDIA_ROOT / user_name)
+                        except OSError:
+                            for root, dirs, files in os.walk(MEDIA_ROOT / user_name):
+                                for name in files:
+                                    os.remove(os.path.join(root, name))
+                        # Save photo.
+                        with open(MEDIA_ROOT / user_name / new_file_name, 'wb') as file:
+                            file.write(data['photo']['file'])
+                            data['photo'] = path
+
+                    fields = ', '.join(
+                        [f'{key} = ${index}' for key, index in zip(data.keys(), range(1, len(data.keys())+1))])
+                    print(f"UPDATE users SET {fields} WHERE name = '{user_name}';")
+                    await conn.execute(f"UPDATE users SET {fields} WHERE name = '{self.request.match_info['name']}';",
+                                       *data.values())
+                    # Return new or updated user
+                    user = await conn.fetchrow('SELECT name, photo FROM users WHERE name = $1;', user_name)
+                    response = dict(items=record_to_dict(user))
+                    return web.HTTPOk(body=json.dumps(response), content_type='application/json')
+
+                if field.name == 'grand':
+                    data.update({
+                        field.name: True if (await field.read()).decode('utf-8').lower() == 'true' else False
+                    })
+                if field.name == 'password':
+                    data.update({
+                        field.name: hash_password((await field.read()).decode('utf-8'))
+                    })
+                if field.name in ['name', 'email', 'description']:
+                    data.update({
+                        field.name: (await field.read()).decode('utf-8')
+                    })
+                # Read file field
+                if field.name == 'photo':
+                    data['photo'] = dict(file=b'', filename=None)
+                    while True:
+                        chunk = await field.read_chunk()
+                        if not chunk:
+                            break
+                        # Collect bytes
+                        data['photo']['file'] += chunk
+                    data['photo']['filename'] = field.filename
 
 
 @routers_user.view('/role/')
@@ -323,7 +414,6 @@ class Roles(web.View):
         """
         data = await self.request.post()
         if not 'name' in data or not 'level' in data:
-            print(data)
             return web.HTTPBadRequest(body=json.dumps(dict(message='Invalid request!')))
         async with self.request.app['db'].acquire() as conn:
             sql_response = await conn.fetchrow('SELECT * FROM role WHERE name = $1;', data['name'])
