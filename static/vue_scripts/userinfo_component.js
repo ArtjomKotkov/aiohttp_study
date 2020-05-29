@@ -45,7 +45,7 @@ var user_info = Vue.component('user_info', {
         },
         computed: {
             user_img () {
-                return this.user.photo != null ? this.user.photo : '/static/img/no-user-photo.png'
+                return this.user.photo != null ? '/media/'+this.user.photo : '/static/img/no-user-photo.png'
             },
             description () {
                 return this.user.description != null ? this.user.description : ''

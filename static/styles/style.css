@@ -574,18 +574,84 @@ textarea.InputField {
 
 /*Стили для инвалидный и валидных полей форм*/
 
+.field-default {
+	margin: 5px 0;
+	padding-left: 5px;
+	outline: none;
+	border: none;
+	border-bottom: 2px solid rgba(0,0,0,0.1) !important;
+	width: 50%;
+	min-width: 210px;
+}
+
 .field-invalid {
 	padding-left: 5px;
-	border: 1px solid rgba(255,0,0,0.5);
-	-webkit-box-shadow: 0px 0px 4px 0px rgba(255,0,0,0.5);
-	-moz-box-shadow: 0px 0px 4px 0px rgba(255,0,0,0.5);
-	box-shadow: 0px 0px 4px 0px rgba(255,0,0,0.5);
+	border-bottom: 2px solid rgba(255,0,0,0.3) !important; 
 }
 
 .field-valid {
 	padding-left: 5px;
-	border: 1px solid rgba(0,204,54,1);
-	-webkit-box-shadow: 0px 0px 4px 0px rgba(0,204,54,1);
-	-moz-box-shadow: 0px 0px 4px 0px rgba(0,204,54,1);
-	box-shadow: 0px 0px 4px 0px rgba(0,204,54,1);
+	border-bottom: 2px solid rgba(0,204,54,0.3) !important;
+}
+
+#file-upload {
+    display: none;
+}
+.custom-file-upload {
+    border: 2px solid rgba(0,0,0,0.1);
+    display: inline-block;
+    padding: 6px 12px;
+    cursor: pointer;
+    width: 50%;
+    margin: 5px 0;
+    border-radius: 4px;
+    color: #74797D;
+}
+
+.field-default-submit {
+	margin: 5px 0;
+	outline: none;
+	border: none;
+	border: 2px solid rgba(0,156,101,1);
+	width: 50%;
+	min-width: 210px;
+	background-color: white;
+	transition-duration: 0.2s;
+	border-radius: 4px;
+	color:black;
+}
+
+.field-default-submit:disabled {
+	margin: 5px 0;
+	outline: none;
+	border: none;
+	border: 2px solid rgba(0,0,0,0.1) !important;
+	width: 50%;
+	min-width: 210px;
+	background-color: rgba(0,0,0,0.05) !important;
+	transition-duration: 0.2s;
+	color: rgba(0,0,0,0.2) !important;
+}
+
+.field-default-submit:hover {
+	margin: 5px 0;
+	outline: none;
+	border: none;
+	border: 2px solid rgba(0,156,101,1);
+	width: 50%;
+	min-width: 210px;
+	background-color: rgba(0,156,101,1);
+	transition-duration: 0.2s;
+	color: white;
+}
+
+.field-default-submit:focus {
+	margin: 5px 0;
+	outline: none;
+	border: none;
+	border: 2px solid rgba(117, 192, 253,1) !important;
+	width: 50%;
+	min-width: 210px;
+	background-color: rgba(117, 192, 253,1) !important;
+	transition-duration: 0.2s;
 }

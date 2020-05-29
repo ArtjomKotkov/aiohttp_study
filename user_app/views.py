@@ -78,21 +78,21 @@ class RegisterView(web.View):
         form = Register()
         return {'form': form}
 
-    async def post(self):
-        form = Register(await self.request.post())
-        if form.validate():
-            async with self.request.app['db'].acquire() as conn:
-                user = await conn.fetchrow('SELECT * FROM users WHERE name = $1;', form.data['name'])
-                if user is None:
-                    await conn.execute('INSERT INTO users (name, password) VALUES ($1, $2);', form.data['name'],
-                                       hash_password(form.data['password']))
-                    user = await conn.fetchrow('SELECT * FROM users WHERE name = $1;', form.data['name'])
-                    await login(self.request, user, timeout=3600)
-                    raise web.HTTPFound(self.request.app['parent_app'].router['main'].url_for())
-                else:
-                    form.name.errors.append('Пользователь с таким именем существует')
-                    return aiohttp_jinja2.render_template('user_app/templates/register.html', self.request,
-                                                          {'form': form})
+    # async def post(self):
+    #     form = Register(await self.request.post())
+    #     if form.validate():
+    #         async with self.request.app['db'].acquire() as conn:
+    #             user = await conn.fetchrow('SELECT * FROM users WHERE name = $1;', form.data['name'])
+    #             if user is None:
+    #                 await conn.execute('INSERT INTO users (name, password) VALUES ($1, $2);', form.data['name'],
+    #                                    hash_password(form.data['password']))
+    #                 user = await conn.fetchrow('SELECT * FROM users WHERE name = $1;', form.data['name'])
+    #                 await login(self.request, user, timeout=3600)
+    #                 raise web.HTTPFound(self.request.app['parent_app'].router['main'].url_for())
+    #             else:
+    #                 form.name.errors.append('Пользователь с таким именем существует')
+    #                 return aiohttp_jinja2.render_template('user_app/templates/register.html', self.request,
+    #                                                       {'form': form})
 
 
 @routers_user.view('/auth/', name='user_auth')
@@ -165,6 +165,7 @@ class Users(web.View):
             - limit;
             - offset;
             - fields, if not pass return only name, and photo for every user;
+
         :return: json with items fields, which contain list of users dictionaries.
         """
         limit = self.request.query.get('limit', 40)
@@ -234,6 +235,10 @@ class Users(web.View):
                         field.name: True if (await field.read()).decode('utf-8').lower() == 'true' else False
                     })
                 if field.name == 'password':
+                    password = (await field.read()).decode('utf-8')
+                    if len(password) < 8:
+                        response = dict(message='Password len must be greater or equal to 8.')
+                        return web.HTTPConflict(body=json.dumps(response), content_type='application/json')
                     data.update({
                         field.name: hash_password((await field.read()).decode('utf-8'))
                     })
@@ -281,24 +286,26 @@ class User(web.View):
                 - all common fields default: (name, photo);
             - subsribers [count]
             - subscriptions [count]
+            - email: if was determined will look for user by email passed by {name}. (True of False)
         :return: information about user which name is {name}
         """
         fields = self.request.query.get('fields', 'name, photo')
         subsribers = self.request.query.get('subscribers', None)
         subscriptions = self.request.query.get('subscriptions', None)
-        mode = self.request.query.get('mode', 'common')
+        email = self.request.query.get('email', False)
+        email = True if email.lower() == 'true' else False
         async with self.request.app['db'].acquire() as conn:
-            if mode == 'common':
-                subsribers_count = f", (SELECT COUNT(*) FROM users_subscribers WHERE owner_name = '{self.request.match_info['name']}') as subscribers" if subsribers == 'True' else ''
-                subscriptions_count = f", (SELECT COUNT(*) FROM users_subscribers WHERE subscriber_name = '{self.request.match_info['name']}') as subscriptions" if subscriptions == 'True' else ''
-                user = await conn.fetchrow(
-                    f"SELECT {fields}{subsribers_count}{subscriptions_count} FROM users WHERE name = $1;",
-                    self.request.match_info['name'])
-                if not user:
-                    response = dict(message=f'User {self.request.match_info["name"]} doesn\'t exist.')
-                    return web.HTTPNotFound(body=json.dumps(response), content_type='application/json')
-                response = dict(items=record_to_dict(user))
-                return web.HTTPOk(body=json.dumps(response), content_type='application/json')
+            subsribers_count = f", (SELECT COUNT(*) FROM users_subscribers WHERE owner_name = '{self.request.match_info['name']}') as subscribers" if subsribers == 'True' else ''
+            subscriptions_count = f", (SELECT COUNT(*) FROM users_subscribers WHERE subscriber_name = '{self.request.match_info['name']}') as subscriptions" if subscriptions == 'True' else ''
+            where_expression = 'email' if email else 'name'
+            user = await conn.fetchrow(
+                f"SELECT {fields}{subsribers_count}{subscriptions_count} FROM users WHERE {where_expression} = $1;",
+                self.request.match_info['name'])
+            if not user:
+                response = dict(message=f'User {self.request.match_info["name"]} doesn\'t exist.')
+                return web.HTTPNotFound(body=json.dumps(response), content_type='application/json')
+            response = dict(items=record_to_dict(user))
+            return web.HTTPOk(body=json.dumps(response), content_type='application/json')
 
     async def post(self):
         """
@@ -318,11 +325,19 @@ class User(web.View):
                         response = dict(message='No data in post request.')
                         return web.HTTPBadRequest(body=json.dumps(response), content_type='application/json')
                     # Check to user existing
-                    user = await conn.fetchrow('SELECT name FROM users WHERE name = $1;',
+                    user = await conn.fetchrow('SELECT name, password FROM users WHERE name = $1;',
                                                self.request.match_info['name'])
                     if not user:
                         response = dict(message=f'User {self.request.match_info["name"]} doesn\'t exist.')
                         return web.HTTPNotFound(body=json.dumps(response), content_type='application/json')
+                    if 'password' in data:
+                        if not 'check_password' in data:
+                            response = dict(message=f'Request with field password also must contain check_password field.')
+                            return web.HTTPBadRequest(body=json.dumps(response), content_type='application/json')
+                        if check_password(data['check_password'], user['password']) == False:
+                            response = dict(
+                            message=f'Check password is invalid.')
+                            return web.HTTPConflict(body=json.dumps(response), content_type='application/json')
 
                     user_name = data['name'] if 'name' in data else self.request.match_info['name']
                     # Check if user with user_name existing, if user_name != match_info['name'],
@@ -355,7 +370,6 @@ class User(web.View):
 
                     fields = ', '.join(
                         [f'{key} = ${index}' for key, index in zip(data.keys(), range(1, len(data.keys())+1))])
-                    print(f"UPDATE users SET {fields} WHERE name = '{user_name}';")
                     await conn.execute(f"UPDATE users SET {fields} WHERE name = '{self.request.match_info['name']}';",
                                        *data.values())
                     # Return new or updated user
@@ -371,7 +385,7 @@ class User(web.View):
                     data.update({
                         field.name: hash_password((await field.read()).decode('utf-8'))
                     })
-                if field.name in ['name', 'email', 'description']:
+                if field.name in ['name', 'email', 'description', 'check_password']:
                     data.update({
                         field.name: (await field.read()).decode('utf-8')
                     })
@@ -506,7 +520,6 @@ class RoleMembers(web.View):
             sql_response = await conn.fetchrow(f"SELECT * FROM role WHERE id = $1;", id)
             if not sql_response:
                 await conn.close()
-                print('here1')
                 return web.HTTPNotFound(
                     body=json.dumps(dict(message=f'No role {self.request.match_info["id"]} in database')),
                     content_type='application/json')

@@ -18,8 +18,10 @@
 	<div class="container-fluid">
 		<div class="row" id='app' style='height: 100vh;'>
 			<div class="col-xl-3 offset-xl-8 col-lg-auto offset-lg-8 col-md-8 offset-md-2 col-sm-10 offset-sm-1 shadow" id=''>
-				{% block content %}
-				{% endblock %}
+				<div class='d-flex flex-column align-items-center justify-content-center h-100'>
+					{% block content %}
+					{% endblock %}
+				</div>
 			</div>
 		</div>
 	</div>

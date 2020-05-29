@@ -1,3 +1,12 @@
 .form-register {
-	margin-top: 20vh;
+}
+
+.form-errors {
+	margin: 10px 0;
+	background-color: #E6E6E6;
+	width: calc(100% + 32px);
+	padding: 6px 16px;
+	box-shadow: inset 0px 0px 10px rgba(0,0,0,0.15);
+	font-size: 12px;
+	font-weight: bold;
 }
